@@ -1,0 +1,43 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>PRISM — Migration Intelligence</title>
+<style>
+:root{font-family:Inter,system-ui,sans-serif;color:#e7f6fc;background:#071523}*{box-sizing:border-box}body{margin:0;background:radial-gradient(circle at 85% 0%,#194057,#071523 45%);min-height:100vh}header{padding:22px 4%;border-bottom:1px solid #2a4a59;display:flex;align-items:center;justify-content:space-between;gap:14px}.brand{font-size:25px;font-weight:900;letter-spacing:3px}.brand b{color:#1bc9bd}.muted,small{color:#95b1c0}main{max-width:1300px;margin:auto;padding:30px 4%}.tabs{display:flex;gap:8px;flex-wrap:wrap;margin:22px 0}.tabs button{background:#1c3345;color:#bdd1db}.tabs button.active{background:#22c7b7;color:#082027}button{font:inherit;cursor:pointer;background:#21c8b7;color:#072328;border:0;padding:10px 15px;border-radius:9px;font-weight:700}button.secondary{background:#29485a;color:#e1f3f9}input{background:#071523;color:#fff;border:1px solid #446273;border-radius:8px;padding:12px;width:min(100%,550px)}h1{font-size:30px;margin:0}.panel,.card{background:#112738dd;border:1px solid #2a4759;border-radius:15px;padding:18px}.panel{margin-top:18px;overflow:auto}.cards{display:grid;grid-template-columns:repeat(4,1fr);gap:14px}.count{font-size:32px;font-weight:850;margin-top:6px}table{border-collapse:collapse;width:100%;text-align:left}td,th{padding:13px;border-bottom:1px solid #2c4453}th{color:#93b8c6;font-size:12px;text-transform:uppercase}.high{color:#ffc182}.critical{color:#ff8194}.medium{color:#a9bdf5}.low{color:#70d4b3}.note{font-size:12px}.toolbar{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}a{color:#6ddfd8}@media(max-width:700px){.cards{grid-template-columns:repeat(2,1fr)}table{font-size:12px}header{align-items:flex-start;flex-direction:column}}
+</style></head><body><header><div><div class="brand">PRI<b>SM</b></div><small>Predictive Risk Intelligence for Secure Migration</small></div><small>DEMO ENVIRONMENT · SYNTHETIC DATA</small></header><main><div class="toolbar"><div><h1>Migration Control Centre</h1><p class="muted">IBM ERP → SAP S/4HANA · Qlik Talend intelligence layer</p></div><button onclick="refresh()">Refresh</button></div><nav class="tabs" id="tabs"></nav><div id="screen"></div></main>
+<script>
+const tabs=['Overview','Exceptions','Migration Memory','SAP Readiness','Evidence'];let active='Overview',exceptions=[],knowledge=[],readiness=[];
+const escapeHTML=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;','&quot;':'&quot;',"'":'&#39;'}[c]));
+async function api(path,options){let r=await fetch('/api/'+path,options);if(!r.ok)throw Error(await r.text());return await r.json()}
+const cell=(s,cls='')=>'<td class="'+cls+'">'+escapeHTML(s)+'</td>';
+const table=(heads,rows)=>'<table><thead><tr>'+heads.map(x=>'<th>'+x+'</th>').join('')+'</tr></thead><tbody>'+rows.join('')+'</tbody></table>';
+const panel=(title,html)=>'<section class="panel"><h2>'+title+'</h2>'+html+'</section>';
+function render(){
+ document.querySelector('#tabs').innerHTML=tabs.map(x=>'<button class="'+(active===x?'active':'')+'" data-tab="'+x+'">'+x+'</button>').join('');
+ document.querySelectorAll('[data-tab]').forEach(b=>b.onclick=()=>{active=b.dataset.tab;render()});
+ let html='';
+ if(active==='Overview'){
+  const m=[['Migration waves',3],['Exceptions',exceptions.length],['Open critical',exceptions.filter(x=>x.severity==='critical'&&x.state==='open').length],['Approved decisions',knowledge.filter(x=>x.approved).length]];
+  html='<div class="cards">'+m.map(([a,b])=>'<div class="card"><small>'+a+'</small><div class="count">'+b+'</div></div>').join('')+'</div>'+panel('Current migration status','<p class="muted">Read-only simulation. No SAP data is modified.</p>'+table(['Domain','Open issues','Critical blockers'],readiness.map(x=>'<tr>'+cell(x.domain)+cell(x.open)+cell(x.blockers)+'</tr>')));
+ }
+ if(active==='Exceptions'){
+  html=panel('Investigate and review',table(['ID','Wave','Domain','Exception','Severity','Status','Review'],exceptions.map(x=>'<tr>'+cell('#'+x.id)+cell(x.wave)+cell(x.domain)+cell(x.error)+cell(x.severity,x.severity)+cell(x.state)+'<td><button class="secondary" data-ex="'+x.id+'">Investigate</button></td></tr>'))+'<div id="detail"></div>');
+ }
+ if(active==='Migration Memory'){
+  html=panel('Approved, versioned decisions',table(['Domain','Decision','Resolution','Source evidence','Version'],knowledge.map(x=>'<tr>'+cell(x.domain)+cell(x.title)+cell(x.resolution)+cell(x.evidence)+cell(x.version)+'</tr>')));
+ }
+ if(active==='SAP Readiness'){
+  html=panel('SAP validation gates (synthetic)',table(['Domain','Records with exceptions','Open','Critical blockers','Status'],readiness.map(x=>'<tr>'+cell(x.domain)+cell(x.total)+cell(x.open)+cell(x.blockers)+cell(x.open?'Review required':'Ready')+'</tr>')));
+ }
+ if(active==='Evidence'){html=panel('Evidence exports','<p class="muted">Export the synthetic audit log, approvals, and exceptions. All records are generated for demonstration.</p><button id="export">Download JSON evidence</button>')}
+ document.querySelector('#screen').innerHTML=html;
+ document.querySelectorAll('[data-ex]').forEach(b=>b.onclick=()=>investigate(Number(b.dataset.ex)));
+ const exportBtn=document.querySelector('#export');if(exportBtn)exportBtn.onclick=async()=>{const data=await api('evidence');const url=URL.createObjectURL(new Blob([JSON.stringify(data,null,2)],{type:'application/json'}));const a=document.createElement('a');a.href=url;a.download='prism-evidence.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000)};
+}
+async function investigate(id){
+ const d=await api('recommendations/'+id),target=document.querySelector('#detail');
+ const matching=d.references.length?d.references.map(x=>'<div class="card"><strong>'+escapeHTML(x.title)+'</strong><p>'+escapeHTML(x.resolution)+'</p><small>Reference: '+escapeHTML(x.evidence)+'</small></div>').join(''):'<p>No approved matching decision. Escalate to the data steward.</p>';
+ target.innerHTML=panel('Exception #'+id+' · Suggested resolutions','<p>'+escapeHTML(d.exception.error)+'</p>'+matching+'<p class="note muted">Recommendations are synthetic and require human review.</p><p><input id="auditNote" placeholder="Required audit note"></p><div style="display:flex;gap:10px;flex-wrap:wrap"><button data-action="approved">Approve</button><button class="secondary" data-action="rejected">Reject</button><button class="secondary" data-action="reopened">Reopen</button></div><p id="feedback" class="muted"></p>');
+ target.querySelectorAll('[data-action]').forEach(b=>b.onclick=async()=>{try{await api('exceptions/'+id+'/decision',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:b.dataset.action,note:document.querySelector('#auditNote').value})});await refresh()}catch(e){document.querySelector('#feedback').textContent=e.message}});
+ target.scrollIntoView({behavior:'smooth',block:'nearest'});
+}
+async function refresh(){try{[exceptions,knowledge,readiness]=await Promise.all([api('exceptions'),api('knowledge'),api('readiness')]);render()}catch(e){document.querySelector('#screen').textContent='PRISM failed to load: '+e.message}}
+refresh();
+</script></body></html>
