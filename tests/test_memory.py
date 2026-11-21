@@ -47,6 +47,29 @@ class MemoryTests(unittest.TestCase):
             memory.review_entry(identifier,memory.Review(action="rejected",reviewer="Steward",note="Attempted re-review"))
         self.assertEqual(ctx.exception.status_code,409)
         self.assertEqual([x["action"] for x in memory.entry_events(identifier)],["created","approved"])
+    def test_revision_approval_supersedes_predecessor(self):
+        old=self.create("Supplier tax mapping version one")
+        memory.review_entry(old,memory.Review(action="approved",reviewer="Steward",note="Validated old version"))
+        new=memory.revise_entry(old,memory.Revision(title="Supplier tax mapping version two",resolution="Use corrected approved tax mapping reference.",evidence="SYNTH-REV-002"))["id"]
+        self.assertEqual(memory.search_memory(q="",domain="Vendor",target_object="SUPPLIER",limit=20)["results"][0]["id"],old)
+        with self.assertRaises(HTTPException) as ctx:
+            memory.revise_entry(old,memory.Revision(title="Competing draft revision",resolution="Another proposed replacement rule.",evidence="SYNTH-REV-003"))
+        self.assertEqual(ctx.exception.status_code,409)
+        memory.review_entry(new,memory.Review(action="approved",reviewer="Steward",note="New mapping reviewed"))
+        current=memory.search_memory(q="",domain="Vendor",target_object="SUPPLIER",limit=20)["results"]
+        self.assertEqual([r["id"] for r in current],[new])
+        self.assertEqual(current[0]["version"],2)
+        self.assertEqual(current[0]["supersedes_id"],old)
+        self.assertEqual([e["action"] for e in memory.entry_events(old)],["created","approved","superseded"])
+
+    def test_rejected_revision_preserves_approved_version(self):
+        old=self.create("Supplier account reference original")
+        memory.review_entry(old,memory.Review(action="approved",reviewer="Steward",note="Original approved"))
+        new=memory.revise_entry(old,memory.Revision(title="Supplier account alternative",resolution="Alternative proposed mapping approach.",evidence="SYNTH-REV-004"))["id"]
+        memory.review_entry(new,memory.Review(action="rejected",reviewer="Steward",note="No adequate evidence"))
+        result=memory.search_memory(q="",domain="Vendor",target_object="SUPPLIER",limit=20)
+        self.assertEqual([r["id"] for r in result["results"]],[old])
+
     def test_no_match_and_limit(self):
         ids=[self.create("Supplier mapping "+str(i)) for i in range(4)]
         for i in ids:
