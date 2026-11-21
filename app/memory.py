@@ -35,7 +35,11 @@ def ensure_schema(c):
         actor TEXT NOT NULL,
         created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
     )""")
+    columns={row["name"] for row in c.execute("PRAGMA table_info(memory_entries)")}
+    if "supersedes_id" not in columns:
+        c.execute("ALTER TABLE memory_entries ADD COLUMN supersedes_id INTEGER REFERENCES memory_entries(id)")
     c.execute("CREATE INDEX IF NOT EXISTS memory_scope_idx ON memory_entries(domain,target_object,state)")
+    c.execute("CREATE INDEX IF NOT EXISTS memory_supersedes_idx ON memory_entries(supersedes_id)")
 
 class MemoryEntry(BaseModel):
     domain: str = Field(min_length=2, max_length=80)
@@ -108,6 +112,13 @@ def review_entry(entry_id:int,review:Review):
         entry=c.execute("SELECT * FROM memory_entries WHERE id=?",(entry_id,)).fetchone()
         if not entry: raise HTTPException(404,"Memory entry not found")
         if entry["state"] != "draft": raise HTTPException(409,"Only drafts can be reviewed")
+        if review.action=="approved" and entry["supersedes_id"] is not None:
+            prior=c.execute("SELECT * FROM memory_entries WHERE id=?",(entry["supersedes_id"],)).fetchone()
+            if not prior or prior["state"]!="approved":
+                raise HTTPException(409,"Predecessor is no longer approved")
+            # Reject competing approved successors: only one current approved version.
+            c.execute("UPDATE memory_entries SET state='superseded' WHERE id=? AND state='approved'",(prior["id"],))
+            c.execute("INSERT INTO memory_events(entry_id,action,note,actor) VALUES(?,?,?,?)",(prior["id"],"superseded",f"Replaced by version {entry['version']} (entry {entry_id})",review.reviewer))
         c.execute("""UPDATE memory_entries SET state=?,reviewer=?,review_note=?,reviewed_at=CURRENT_TIMESTAMP WHERE id=?""",(review.action,review.reviewer,review.note,entry_id))
         c.execute("INSERT INTO memory_events(entry_id,action,note,actor) VALUES(?,?,?,?)",(entry_id,review.action,review.note,review.reviewer))
         return {"id":entry_id,"state":review.action}
@@ -118,3 +129,28 @@ def entry_events(entry_id:int):
         ensure_schema(c)
         if not c.execute("SELECT 1 FROM memory_entries WHERE id=?",(entry_id,)).fetchone(): raise HTTPException(404,"Memory entry not found")
         return [dict(r) for r in c.execute("SELECT * FROM memory_events WHERE entry_id=? ORDER BY id",(entry_id,))]
+
+class Revision(BaseModel):
+    title: str = Field(min_length=5,max_length=200)
+    resolution: str = Field(min_length=10,max_length=4000)
+    evidence: str = Field(min_length=3,max_length=500)
+
+@router.post("/entries/{entry_id}/revisions",status_code=201)
+def revise_entry(entry_id:int,revision:Revision):
+    """Create a draft successor. Approval atomically retires its predecessor."""
+    with connection() as c:
+        ensure_schema(c)
+        prior=c.execute("SELECT * FROM memory_entries WHERE id=?",(entry_id,)).fetchone()
+        if not prior: raise HTTPException(404,"Memory entry not found")
+        if prior["state"]!="approved": raise HTTPException(409,"Only approved entries may be revised")
+        if prior["version"]>=9999: raise HTTPException(409,"Maximum version reached")
+        # Do not allow parallel drafts for the same predecessor.
+        if c.execute("SELECT 1 FROM memory_entries WHERE supersedes_id=? AND state='draft'",(entry_id,)).fetchone():
+            raise HTTPException(409,"A draft revision already exists")
+        cur=c.execute("""INSERT INTO memory_entries
+            (domain,target_object,title,resolution,evidence,version,supersedes_id)
+            VALUES(?,?,?,?,?,?,?)""",(prior["domain"],prior["target_object"],revision.title,
+                revision.resolution,revision.evidence,prior["version"]+1,entry_id))
+        c.execute("INSERT INTO memory_events(entry_id,action,note,actor) VALUES(?,?,?,?)",
+                  (cur.lastrowid,"created",f"Revision of entry {entry_id}","demo"))
+        return {"id":cur.lastrowid,"version":prior["version"]+1,"state":"draft","supersedes_id":entry_id}
