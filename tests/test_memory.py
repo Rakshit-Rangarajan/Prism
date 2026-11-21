@@ -5,6 +5,7 @@ import unittest
 from contextlib import contextmanager
 from unittest.mock import patch
 from fastapi import HTTPException
+from app import server  # initialize FastAPI routes before memory's server dependencies
 from app import memory
 import sqlite3
 
