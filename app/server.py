@@ -3,6 +3,7 @@ from pathlib import Path
 from contextlib import contextmanager
 from fastapi import FastAPI, Depends, HTTPException
 from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
 from fastapi.security import HTTPBasic, HTTPBasicCredentials
 from pydantic import BaseModel
 
@@ -45,7 +46,7 @@ seed()
 @app.get("/api/health")
 def health():return {"status":"ok","mode":"synthetic"}
 @app.get("/",dependencies=[Depends(require_user)])
-def index():return FileResponse(Path(__file__).with_name("index.html"))
+def index():return FileResponse(Path(__file__).resolve().parent.parent / "frontend" / "dist" / "index.html")
 @app.get("/api/exceptions",dependencies=[Depends(require_user)])
 def exceptions():
     with connection() as c:return [dict(r) for r in c.execute("SELECT * FROM exceptions ORDER BY id")]
@@ -76,3 +77,6 @@ def decide(identifier:int,req:Decision):
 @app.get("/api/evidence",dependencies=[Depends(require_user)])
 def evidence():
     with connection() as c:return {"synthetic":True,"exceptions":[dict(r) for r in c.execute("SELECT * FROM exceptions")],"audit":[dict(r) for r in c.execute("SELECT * FROM audit")]}
+
+# React/Vite compiled assets; API endpoints retain their existing auth dependencies.
+app.mount('/assets',StaticFiles(directory=str(Path(__file__).resolve().parent.parent / 'frontend' / 'dist' / 'assets')),name='assets')
