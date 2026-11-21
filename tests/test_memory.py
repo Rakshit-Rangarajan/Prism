@@ -31,14 +31,14 @@ class MemoryTests(unittest.TestCase):
     def test_approval_gate_and_ranking(self):
         a=self.create("Supplier tax code mapping", "Validate supplier tax code against approved lookup")
         b=self.create("Supplier account reconciliation", "Reconcile supplier account using signed chart")
-        self.assertEqual(memory.search_memory(q="supplier",domain="Vendor",target_object="SUPPLIER")["results"],[])
+        self.assertEqual(memory.search_memory(q="supplier",domain="Vendor",target_object="SUPPLIER",limit=20)["results"],[])
         memory.review_entry(a,memory.Review(action="approved",reviewer="Steward",note="Validated synthetic source"))
         memory.review_entry(b,memory.Review(action="rejected",reviewer="Steward",note="Insufficient evidence"))
-        result=memory.search_memory(q="tax code",domain="Vendor",target_object="SUPPLIER")
+        result=memory.search_memory(q="tax code",domain="Vendor",target_object="SUPPLIER",limit=20)
         self.assertEqual([x["id"] for x in result["results"]],[a])
         self.assertEqual(result["retrieval"],"bm25-lexical")
-        self.assertEqual(memory.search_memory(q="tax",domain="Finance")["results"],[])
-        self.assertEqual(memory.search_memory(q="tax",target_object="PRODUCT")["results"],[])
+        self.assertEqual(memory.search_memory(q="tax",domain="Finance",target_object="",limit=20)["results"],[])
+        self.assertEqual(memory.search_memory(q="tax",domain="",target_object="PRODUCT",limit=20)["results"],[])
     def test_review_is_immutable(self):
         identifier=self.create("Supplier account validation")
         memory.review_entry(identifier,memory.Review(action="approved",reviewer="Steward",note="Reviewed with evidence"))
@@ -50,8 +50,8 @@ class MemoryTests(unittest.TestCase):
         ids=[self.create("Supplier mapping "+str(i)) for i in range(4)]
         for i in ids:
             memory.review_entry(i,memory.Review(action="approved",reviewer="Steward",note="Approved synthetic"))
-        self.assertEqual(memory.search_memory(q="unmatchedword",domain="Vendor")["results"],[])
-        self.assertEqual(len(memory.search_memory(q="",domain="Vendor",limit=2)["results"]),2)
+        self.assertEqual(memory.search_memory(q="unmatchedword",domain="Vendor",target_object="",limit=20)["results"],[])
+        self.assertEqual(len(memory.search_memory(q="",domain="Vendor",target_object="",limit=2)["results"]),2)
 
 if __name__=="__main__":
     unittest.main()
