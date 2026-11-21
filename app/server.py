@@ -80,3 +80,7 @@ def evidence():
 
 # React/Vite compiled assets; API endpoints retain their existing auth dependencies.
 app.mount('/assets',StaticFiles(directory=str(Path(__file__).resolve().parent.parent / 'frontend' / 'dist' / 'assets')),name='assets')
+
+# Register isolated, approval-gated Migration Memory catalog.
+from .memory import router as memory_router
+app.include_router(memory_router)
