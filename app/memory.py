@@ -4,6 +4,8 @@ Uses the existing SQLite connection and enforces domain scoping. This is
 deterministic retrieval, not a trained AI model or production governance.
 """
 import re
+import math
+from collections import Counter
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
 from .server import connection, require_user
@@ -59,15 +61,29 @@ def search_memory(q: str = Query(default="", max_length=250), domain: str = Quer
             sql+=" AND domain=?"; params.append(domain)
         if target_object:
             sql+=" AND target_object=?"; params.append(target_object)
-        if q.strip():
-            tokens=[t for t in re.findall(r"[a-zA-Z0-9_]+",q.lower()) if len(t)>1][:12]
-            for token in tokens:
-                sql+=" AND (LOWER(title) LIKE ? OR LOWER(resolution) LIKE ? OR LOWER(evidence) LIKE ?)"
-                wildcard="%"+token+"%"
-                params.extend([wildcard]*3)
-        sql+=" ORDER BY reviewed_at DESC, id DESC LIMIT ?"
-        params.append(limit)
-        return {"query":q,"domain":domain,"target_object":target_object,"results":[dict(r) for r in c.execute(sql,params)],"retrieval":"deterministic-keywords","approved_only":True}
+        rows=[dict(r) for r in c.execute(sql+" ORDER BY reviewed_at DESC,id DESC",params)]
+        tokens=[t for t in re.findall(r"[a-zA-Z0-9_]+",q.casefold()) if len(t)>1][:24]
+        if tokens:
+            # BM25-inspired lexical ranking with document-length normalization.
+            # This is explicitly NOT neural semantic search.
+            documents=[re.findall(r"[a-zA-Z0-9_]+",(r["title"]+" "+r["resolution"]+" "+r["evidence"]).casefold()) for r in rows]
+            counts=[Counter(doc) for doc in documents]
+            n=len(rows)
+            avg_length=sum(map(len,documents))/n if n else 1
+            df=Counter(token for doc in counts for token in doc)
+            ranked=[]
+            for row,doc,frequency in zip(rows,documents,counts):
+                score=0.0
+                for token in set(tokens):
+                    occurrences=frequency[token]
+                    if occurrences:
+                        idf=math.log(1+(n-df[token]+0.5)/(df[token]+0.5))
+                        score+=idf*occurrences*2.2/(occurrences+1.2*(0.25+0.75*len(doc)/avg_length))
+                if score:
+                    row["retrieval_score"]=round(score,5)
+                    ranked.append(row)
+            rows=sorted(ranked,key=lambda row:(-row["retrieval_score"],-row["id"]))
+        return {"query":q,"domain":domain,"target_object":target_object,"results":rows[:limit],"retrieval":"bm25-lexical","approved_only":True}
 
 @router.get("/entries")
 def list_entries():
