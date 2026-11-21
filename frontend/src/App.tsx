@@ -1,4 +1,4 @@
-import {useEffect,useMemo,useState} from 'react';
+import React, {useEffect,useMemo,useState} from 'react';
 import {Activity,AlertTriangle,ArrowRight,BookOpen,CheckCircle2,ChevronRight,Database,Download,FileCheck2,LayoutDashboard,RefreshCcw,Search,ShieldCheck,Network,XCircle,Menu,X} from 'lucide-react';
 
 type Exception={id:number;wave:string;domain:string;object:string;error:string;severity:string;state:string;owner:string;note:string|null};
