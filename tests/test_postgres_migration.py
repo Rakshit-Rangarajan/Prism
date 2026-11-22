@@ -81,6 +81,39 @@ class PostgresMigrationTests(unittest.TestCase):
                NULL,NULL,'2026-01-05',NULL,1)""")
         with self.assertRaisesRegex(ValueError,"competing draft"):
             read_snapshot(self.path)
+    def test_duplicate_audit_ids_rejected(self):
+        # A duplicate is impossible under the canonical PK, so simulate an
+        # exported SQLite table without the constraint.
+        with sqlite3.connect(self.path) as db:
+            db.executescript("""ALTER TABLE memory_events RENAME TO old_events;
+                CREATE TABLE memory_events(id INTEGER,entry_id INTEGER,action TEXT,
+                    note TEXT,actor TEXT,created_at TEXT);
+                INSERT INTO memory_events SELECT * FROM old_events;
+                DROP TABLE old_events;""")
+            db.execute("INSERT INTO memory_events SELECT * FROM memory_events WHERE id=1")
+        with self.assertRaisesRegex(ValueError,"Duplicate source audit"):
+            read_snapshot(self.path)
+
+    def test_reviewed_successor_requires_retired_parent(self):
+        with sqlite3.connect(self.path) as db:
+            db.execute("UPDATE memory_entries SET state='approved' WHERE id=1")
+        with self.assertRaisesRegex(ValueError,"non-superseded predecessor"):
+            read_snapshot(self.path)
+
+    def test_superseded_entry_requires_reviewed_successor(self):
+        with sqlite3.connect(self.path) as db:
+            db.execute("UPDATE memory_entries SET state='rejected' WHERE id=2")
+        with self.assertRaisesRegex(ValueError,"lacks a reviewed successor"):
+            read_snapshot(self.path)
+
+    def test_competing_approved_successors_rejected(self):
+        with sqlite3.connect(self.path) as db:
+            db.execute("""INSERT INTO memory_entries VALUES
+                (3,'Vendor','SUPPLIER','Competing','Conflict','SYNTH-3',2,'approved',
+                 'Steward','Approved','2026-01-05','2026-01-06',1)""")
+        with self.assertRaisesRegex(ValueError,"competing reviewed successors"):
+            read_snapshot(self.path)
+
     def test_no_dsn_fails_closed(self):
         with self.assertRaisesRegex(ValueError,"PRISM_POSTGRES_DSN"):
             migrate(self.path,"")
