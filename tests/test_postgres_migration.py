@@ -58,6 +58,29 @@ class PostgresMigrationTests(unittest.TestCase):
             db.execute("UPDATE memory_entries SET supersedes_id=999 WHERE id=2")
         with self.assertRaisesRegex(ValueError,"orphaned supersession"):
             read_snapshot(self.path)
+    def test_invalid_governance_state_rejected(self):
+        with sqlite3.connect(self.path) as db:
+            db.execute("UPDATE memory_entries SET state='unreviewed' WHERE id=2")
+        with self.assertRaisesRegex(ValueError,"Invalid memory state"):
+            read_snapshot(self.path)
+    def test_supersession_scope_mismatch_rejected(self):
+        with sqlite3.connect(self.path) as db:
+            db.execute("UPDATE memory_entries SET domain='Finance' WHERE id=2")
+        with self.assertRaisesRegex(ValueError,"Invalid supersession scope"):
+            read_snapshot(self.path)
+    def test_supersession_cycle_rejected(self):
+        with sqlite3.connect(self.path) as db:
+            db.execute("UPDATE memory_entries SET supersedes_id=2 WHERE id=1")
+        with self.assertRaisesRegex(ValueError,"supersession cycle"):
+            read_snapshot(self.path)
+    def test_competing_draft_successors_rejected(self):
+        with sqlite3.connect(self.path) as db:
+            db.execute("UPDATE memory_entries SET state='draft' WHERE id=2")
+            db.execute("""INSERT INTO memory_entries VALUES
+              (3,'Vendor','SUPPLIER','Competing','Conflict','SYNTH-3',2,'draft',
+               NULL,NULL,'2026-01-05',NULL,1)""")
+        with self.assertRaisesRegex(ValueError,"competing draft"):
+            read_snapshot(self.path)
     def test_no_dsn_fails_closed(self):
         with self.assertRaisesRegex(ValueError,"PRISM_POSTGRES_DSN"):
             migrate(self.path,"")
