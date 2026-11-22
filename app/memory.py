@@ -40,6 +40,8 @@ def ensure_schema(c):
         c.execute("ALTER TABLE memory_entries ADD COLUMN supersedes_id INTEGER REFERENCES memory_entries(id)")
     c.execute("CREATE INDEX IF NOT EXISTS memory_scope_idx ON memory_entries(domain,target_object,state)")
     c.execute("CREATE INDEX IF NOT EXISTS memory_supersedes_idx ON memory_entries(supersedes_id)")
+    # Enforce one draft per predecessor even under concurrent requests.
+    c.execute("CREATE UNIQUE INDEX IF NOT EXISTS memory_one_draft_per_parent ON memory_entries(supersedes_id) WHERE state='draft' AND supersedes_id IS NOT NULL")
 
 class MemoryEntry(BaseModel):
     domain: str = Field(min_length=2, max_length=80)
@@ -109,6 +111,7 @@ def review_entry(entry_id:int,review:Review):
     if review.action not in ("approved","rejected"): raise HTTPException(400,"Invalid review action")
     with connection() as c:
         ensure_schema(c)
+        c.execute("BEGIN IMMEDIATE")
         entry=c.execute("SELECT * FROM memory_entries WHERE id=?",(entry_id,)).fetchone()
         if not entry: raise HTTPException(404,"Memory entry not found")
         if entry["state"] != "draft": raise HTTPException(409,"Only drafts can be reviewed")
@@ -140,6 +143,7 @@ def revise_entry(entry_id:int,revision:Revision):
     """Create a draft successor. Approval atomically retires its predecessor."""
     with connection() as c:
         ensure_schema(c)
+        c.execute("BEGIN IMMEDIATE")
         prior=c.execute("SELECT * FROM memory_entries WHERE id=?",(entry_id,)).fetchone()
         if not prior: raise HTTPException(404,"Memory entry not found")
         if prior["state"]!="approved": raise HTTPException(409,"Only approved entries may be revised")
