@@ -69,6 +69,16 @@ def read_snapshot(path):
     # Fail closed on inconsistent governance history before touching PostgreSQL.
     by_id={row[0]:row for row in entries}
     allowed={"draft","approved","rejected","superseded"}
+    # Validate the graph before assessing review state, so cycles are
+    # reported accurately even when they also violate approval invariants.
+    for row in entries:
+        seen=set()
+        cursor=row[0]
+        while cursor is not None:
+            if cursor in seen:
+                raise ValueError("Source contains a supersession cycle")
+            seen.add(cursor)
+            cursor=by_id[cursor][-1]
     drafts=set()
     for row in entries:
         identifier,domain,target_object,_,_,_,version,state,*_=row
@@ -83,16 +93,6 @@ def read_snapshot(path):
                 if predecessor in drafts:
                     raise ValueError("Source contains competing draft successors")
                 drafts.add(predecessor)
-    # Validate the graph before assessing review state, so cycles are
-    # reported accurately even when they also violate approval invariants.
-    for row in entries:
-        seen=set()
-        cursor=row[0]
-        while cursor is not None:
-            if cursor in seen:
-                raise ValueError("Source contains a supersession cycle")
-            seen.add(cursor)
-            cursor=by_id[cursor][-1]
     successors={}
     for row in entries:
         if row[-1] is not None and row[7] in ('approved','superseded'):
