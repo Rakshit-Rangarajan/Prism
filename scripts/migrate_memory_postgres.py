@@ -54,6 +54,11 @@ def read_snapshot(path):
             raise ValueError("Source lacks versioned Migration Memory tables")
         entries=[tuple(row[c] for c in ENTRY_COLUMNS) for row in db.execute("SELECT * FROM memory_entries ORDER BY id")]
         events=[tuple(row[c] for c in EVENT_COLUMNS) for row in db.execute("SELECT * FROM memory_events ORDER BY id")]
+    event_ids={row[0] for row in events}
+    if len(event_ids)!=len(events):
+        raise ValueError('Duplicate source audit event identifiers')
+    if any(not isinstance(row[0],int) or row[0]<=0 for row in events):
+        raise ValueError('Invalid audit event identifier')
     ids={row[0] for row in entries}
     if len(ids)!=len(entries):
         raise ValueError("Duplicate source entry identifiers")
@@ -65,10 +70,22 @@ def read_snapshot(path):
     by_id={row[0]:row for row in entries}
     allowed={"draft","approved","rejected","superseded"}
     drafts=set()
+    successors={}
+    for row in entries:
+        if row[-1] is not None and row[7] in ('approved','superseded'):
+            successors.setdefault(row[-1],[]).append(row)
+    for parent,children in successors.items():
+        if len(children)>1:
+            raise ValueError('Source contains competing reviewed successors')
+        if by_id[parent][7] != 'superseded':
+            raise ValueError('Reviewed successor has non-superseded predecessor')
+    for row in entries:
+        if row[7]=='superseded' and row[0] not in successors:
+            raise ValueError('Superseded entry lacks a reviewed successor')
     for row in entries:
         identifier,domain,target_object,_,_,_,version,state,*_=row
         predecessor=row[-1]
-        if state not in allowed or not isinstance(version,int) or not 1<=version<=9999:
+        if not isinstance(identifier,int) or identifier<=0 or state not in allowed or not isinstance(version,int) or not 1<=version<=9999:
             raise ValueError(f"Invalid memory state/version for entry {identifier}")
         if predecessor is not None:
             parent=by_id[predecessor]
