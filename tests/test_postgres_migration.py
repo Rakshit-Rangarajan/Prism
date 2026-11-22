@@ -1,0 +1,69 @@
+"""Offline migration contract tests; no PostgreSQL service or paid resources required."""
+import os
+import sqlite3
+import tempfile
+import unittest
+from pathlib import Path
+from scripts.migrate_memory_postgres import read_snapshot, migration_plan, migrate, SCHEMA
+
+class PostgresMigrationTests(unittest.TestCase):
+    def setUp(self):
+        self.temp=tempfile.TemporaryDirectory()
+        self.path=Path(self.temp.name)/"source.sqlite"
+        with sqlite3.connect(self.path) as db:
+            db.executescript("""
+            CREATE TABLE memory_entries (
+              id INTEGER PRIMARY KEY, domain TEXT,target_object TEXT,title TEXT,
+              resolution TEXT,evidence TEXT,version INTEGER,state TEXT,reviewer TEXT,
+              review_note TEXT,created_at TEXT,reviewed_at TEXT,supersedes_id INTEGER
+            );
+            CREATE TABLE memory_events (
+              id INTEGER PRIMARY KEY,entry_id INTEGER,action TEXT,note TEXT,
+              actor TEXT,created_at TEXT
+            );
+            INSERT INTO memory_entries VALUES
+             (1,'Vendor','SUPPLIER','Old mapping','Old mapping evidence','SYNTH-1',1,
+              'superseded','Steward','Reviewed','2026-01-01','2026-01-02',NULL),
+             (2,'Vendor','SUPPLIER','New mapping','New mapping evidence','SYNTH-2',2,
+              'approved','Steward','Reviewed','2026-01-03','2026-01-04',1);
+            INSERT INTO memory_events VALUES
+             (1,1,'approved','Approved','Steward','2026-01-02'),
+             (2,1,'superseded','Replaced','Steward','2026-01-04'),
+             (3,2,'approved','Approved','Steward','2026-01-04');
+            """)
+    def tearDown(self):
+        self.temp.cleanup()
+    def test_dry_run_is_read_only_and_counts_audit(self):
+        before=self.path.read_bytes()
+        plan=migration_plan(self.path)
+        self.assertEqual(plan["memory_entries"],2)
+        self.assertEqual(plan["memory_events"],3)
+        self.assertEqual(plan["requires_empty_destination"],True)
+        self.assertEqual(self.path.read_bytes(),before)
+        entries,events=read_snapshot(self.path)
+        self.assertEqual(entries[1][-1],1)
+        self.assertEqual(events[-1][1],2)
+    def test_missing_source_does_not_create_database(self):
+        missing=Path(self.temp.name)/"absent.sqlite"
+        with self.assertRaises(FileNotFoundError):
+            migration_plan(missing)
+        self.assertFalse(missing.exists())
+    def test_orphan_audit_rejected(self):
+        with sqlite3.connect(self.path) as db:
+            db.execute("INSERT INTO memory_events VALUES(4,999,'approved','bad','Steward','2026-01-05')")
+        with self.assertRaisesRegex(ValueError,"orphaned audit"):
+            read_snapshot(self.path)
+    def test_orphan_supersession_rejected(self):
+        with sqlite3.connect(self.path) as db:
+            db.execute("UPDATE memory_entries SET supersedes_id=999 WHERE id=2")
+        with self.assertRaisesRegex(ValueError,"orphaned supersession"):
+            read_snapshot(self.path)
+    def test_no_dsn_fails_closed(self):
+        with self.assertRaisesRegex(ValueError,"PRISM_POSTGRES_DSN"):
+            migrate(self.path,"")
+    def test_schema_has_approval_and_unique_draft_guards(self):
+        self.assertIn("memory_one_draft_per_parent",SCHEMA)
+        self.assertIn("state='draft' AND supersedes_id IS NOT NULL",SCHEMA)
+        self.assertIn("REFERENCES memory_entries(id)",SCHEMA)
+if __name__=="__main__":
+    unittest.main()
