@@ -1,15 +1,16 @@
 import React, {useEffect,useMemo,useState} from 'react';
+import {MigrationStudio} from './MigrationStudio';
 import {Activity,AlertTriangle,ArrowRight,BookOpen,CheckCircle2,ChevronRight,Database,Download,FileCheck2,LayoutDashboard,RefreshCcw,Search,ShieldCheck,Network,XCircle,Menu,X} from 'lucide-react';
 
 type Exception={id:number;wave:string;domain:string;object:string;error:string;severity:string;state:string;owner:string;note:string|null};
 type Knowledge={id:number;domain:string;title:string;resolution:string;evidence:string;approved:number;version:number};
 type Readiness={domain:string;total:number;open:number;blockers:number};
 type Recommendation={exception:Exception;references:Knowledge[]};
-const sections=['Overview','Exceptions','Migration Memory','SAP Readiness','Critical Path','Evidence'] as const;
+const sections=['Overview','Migration Studio','Exceptions','Migration Memory','SAP Readiness','Critical Path','Evidence'] as const;
 type Section=typeof sections[number];
 async function get<T>(endpoint:string,options?:RequestInit):Promise<T>{const r=await fetch('/api/'+endpoint,options);if(!r.ok){const e=await r.text();throw Error(e.slice(0,220)||('Request failed '+r.status));}return r.json()}
 function Pill({children,tone='normal'}:{children:React.ReactNode;tone?:string}){return <span className={'pill '+tone}>{children}</span>}
-const navIcons=[LayoutDashboard,AlertTriangle,BookOpen,ShieldCheck,Network,FileCheck2];
+const navIcons=[LayoutDashboard,Network,AlertTriangle,BookOpen,ShieldCheck,Network,FileCheck2];
 export default function App(){
  const [section,setSection]=useState<Section>('Overview');const [items,setItems]=useState<Exception[]>([]);const [knowledge,setKnowledge]=useState<Knowledge[]>([]);
  const [readiness,setReadiness]=useState<Readiness[]>([]);const [selected,setSelected]=useState<number|null>(null);const [recommendation,setRecommendation]=useState<Recommendation|null>(null);
@@ -33,8 +34,9 @@ export default function App(){
   <div className="workspace">
    <header className="topbar"><button className="mobile-menu" onClick={()=>setMobile(true)}><Menu size={21}/></button><span>Operations <ChevronRight size={15}/> <b>{section}</b></span><div className="topbar-right"><Pill tone="live"><span className="green-dot"/> DEMO MODE</Pill><button className="icon-button" title="Refresh data" onClick={load}><RefreshCcw size={17}/></button></div></header>
    <main>
-    <div className="page-heading"><div><div className="eyebrow">PREDICTIVE RISK INTELLIGENCE</div><h1>{section==='Overview'?'Migration Command Centre':section}</h1><p>{section==='Overview'?'Intelligence and decision support across migration waves.':section==='Exceptions'?'Investigate, classify, and route synthetic migration exceptions.':section==='Migration Memory'?'Evidence-backed, approved remediation knowledge.':section==='SAP Readiness'?'Domain-level gates based on explicit exceptions.':section==='Critical Path'?'Prioritise simulated blockers threatening release readiness.':'Export traceable synthetic decision evidence.'}</p></div><Pill tone="quiet">READ-ONLY MIGRATION</Pill></div>
+    <div className="page-heading"><div><div className="eyebrow">PREDICTIVE RISK INTELLIGENCE</div><h1>{section==='Overview'?'Migration Command Centre':section}</h1><p>{section==='Overview'?'Intelligence and decision support across migration waves.':section==='Migration Studio'?'Configure source systems, target formats, conversion strategy and private AI.':section==='Exceptions'?'Investigate, classify, and route synthetic migration exceptions.':section==='Migration Memory'?'Evidence-backed, approved remediation knowledge.':section==='SAP Readiness'?'Domain-level gates based on explicit exceptions.':section==='Critical Path'?'Prioritise simulated blockers threatening release readiness.':'Export traceable synthetic decision evidence.'}</p></div><Pill tone="quiet">READ-ONLY MIGRATION</Pill></div>
     {error&&<div className="error" role="alert">{error}<button onClick={()=>setError('')}>Dismiss</button></div>}
+    {section==='Migration Studio'&&<MigrationStudio/>}
     {section==='Overview'&&<><div className="metrics">
       <Metric label="MIGRATION READINESS" value={totalReadiness+'%'} foot="Based on open exception count" icon={<Activity/>} />
       <Metric label="OPEN EXCEPTIONS" value={String(open).padStart(2,'0')} foot={items.length+' total tracked'} icon={<Database/>}/>
