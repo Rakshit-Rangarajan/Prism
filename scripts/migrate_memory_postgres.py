@@ -61,6 +61,30 @@ def read_snapshot(path):
         raise ValueError("Source contains orphaned supersession references")
     if any(row[1] not in ids for row in events):
         raise ValueError("Source contains orphaned audit events")
+    # Fail closed on inconsistent governance history before touching PostgreSQL.
+    by_id={row[0]:row for row in entries}
+    allowed={"draft","approved","rejected","superseded"}
+    drafts=set()
+    for row in entries:
+        identifier,domain,target_object,_,_,_,version,state,*_=row
+        predecessor=row[-1]
+        if state not in allowed or not isinstance(version,int) or not 1<=version<=9999:
+            raise ValueError(f"Invalid memory state/version for entry {identifier}")
+        if predecessor is not None:
+            parent=by_id[predecessor]
+            if parent[1:3]!=(domain,target_object) or version!=parent[6]+1:
+                raise ValueError(f"Invalid supersession scope/version for entry {identifier}")
+            if state=="draft":
+                if predecessor in drafts:
+                    raise ValueError("Source contains competing draft successors")
+                drafts.add(predecessor)
+            seen={identifier}
+            cursor=predecessor
+            while cursor is not None:
+                if cursor in seen:
+                    raise ValueError("Source contains a supersession cycle")
+                seen.add(cursor)
+                cursor=by_id[cursor][-1]
     return entries,events
 
 def migration_plan(path):
