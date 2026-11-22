@@ -10,6 +10,7 @@ WORKDIR /service
 COPY requirements.txt ./
 RUN pip install --no-cache-dir -r requirements.txt
 COPY app ./app
+COPY scripts ./scripts
 COPY --from=ui-build /build/frontend/dist ./frontend/dist
 COPY tests ./tests
 RUN python -m unittest discover -s tests -p 'test_*.py' -v
