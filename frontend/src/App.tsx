@@ -1,16 +1,17 @@
 import React, {useEffect,useMemo,useState} from 'react';
 import {MigrationStudio} from './MigrationStudio';
+import {DataQualityLab} from './DataQualityLab';
 import {Activity,AlertTriangle,ArrowRight,BookOpen,CheckCircle2,ChevronRight,Database,Download,FileCheck2,LayoutDashboard,RefreshCcw,Search,ShieldCheck,Network,XCircle,Menu,X} from 'lucide-react';
 
 type Exception={id:number;wave:string;domain:string;object:string;error:string;severity:string;state:string;owner:string;note:string|null};
 type Knowledge={id:number;domain:string;title:string;resolution:string;evidence:string;approved:number;version:number};
 type Readiness={domain:string;total:number;open:number;blockers:number};
 type Recommendation={exception:Exception;references:Knowledge[]};
-const sections=['Overview','Migration Studio','Exceptions','Migration Memory','SAP Readiness','Critical Path','Evidence'] as const;
+const sections=['Overview','Migration Studio','Data Quality Lab','Exceptions','Migration Memory','SAP Readiness','Critical Path','Evidence'] as const;
 type Section=typeof sections[number];
 async function get<T>(endpoint:string,options?:RequestInit):Promise<T>{const r=await fetch('/api/'+endpoint,options);if(!r.ok){const e=await r.text();throw Error(e.slice(0,220)||('Request failed '+r.status));}return r.json()}
 function Pill({children,tone='normal'}:{children:React.ReactNode;tone?:string}){return <span className={'pill '+tone}>{children}</span>}
-const navIcons=[LayoutDashboard,Network,AlertTriangle,BookOpen,ShieldCheck,Network,FileCheck2];
+const navIcons=[LayoutDashboard,Network,Database,AlertTriangle,BookOpen,ShieldCheck,Network,FileCheck2];
 export default function App(){
  const [section,setSection]=useState<Section>('Overview');const [items,setItems]=useState<Exception[]>([]);const [knowledge,setKnowledge]=useState<Knowledge[]>([]);
  const [readiness,setReadiness]=useState<Readiness[]>([]);const [selected,setSelected]=useState<number|null>(null);const [recommendation,setRecommendation]=useState<Recommendation|null>(null);
@@ -28,15 +29,16 @@ export default function App(){
   <aside className={'sidebar '+(mobile?'show':'')}>
    <div className="brand"><div className="brand-icon"><Activity size={23}/></div><div><strong>PRISM<span>.</span></strong><small>MIGRATION INTELLIGENCE</small></div><button className="mobile-close" onClick={()=>setMobile(false)} aria-label="Close menu"><X size={20}/></button></div>
    <div className="side-label">WORKSPACE</div><nav>{sections.map((s,i)=>{const Icon=navIcons[i];return <button key={s} className={'nav-item '+(section===s?'active':'')} onClick={()=>select(s)}><Icon size={18}/><span>{s}</span>{s==='Exceptions'&&open>0&&<b className="nav-count">{open}</b>}</button>})}</nav>
-   <div className="side-bottom"><div className="data-line"><span className="green-dot"/> SIMULATION ONLINE</div><div className="side-note">IBM ERP <ArrowRight size={13}/> SAP S/4HANA</div><p>Qlik Talend intelligence layer<br/>Synthetic data only · v0.4</p></div>
+   <div className="side-bottom"><div className="data-line"><span className="green-dot"/> SIMULATION ONLINE</div><div className="side-note">Source <ArrowRight size={13}/> Destination</div><p>Source-agnostic migration intelligence<br/>Synthetic demo · Local CSV workbench</p></div>
   </aside>
   {mobile&&<div className="backdrop" onClick={()=>setMobile(false)}/>}
   <div className="workspace">
    <header className="topbar"><button className="mobile-menu" onClick={()=>setMobile(true)}><Menu size={21}/></button><span>Operations <ChevronRight size={15}/> <b>{section}</b></span><div className="topbar-right"><Pill tone="live"><span className="green-dot"/> DEMO MODE</Pill><button className="icon-button" title="Refresh data" onClick={load}><RefreshCcw size={17}/></button></div></header>
    <main>
-    <div className="page-heading"><div><div className="eyebrow">PREDICTIVE RISK INTELLIGENCE</div><h1>{section==='Overview'?'Migration Command Centre':section}</h1><p>{section==='Overview'?'Intelligence and decision support across migration waves.':section==='Migration Studio'?'Configure source systems, target formats, conversion strategy and private AI.':section==='Exceptions'?'Investigate, classify, and route synthetic migration exceptions.':section==='Migration Memory'?'Evidence-backed, approved remediation knowledge.':section==='SAP Readiness'?'Domain-level gates based on explicit exceptions.':section==='Critical Path'?'Prioritise simulated blockers threatening release readiness.':'Export traceable synthetic decision evidence.'}</p></div><Pill tone="quiet">READ-ONLY MIGRATION</Pill></div>
+    <div className="page-heading"><div><div className="eyebrow">PREDICTIVE RISK INTELLIGENCE</div><h1>{section==='Overview'?'Migration Command Centre':section}</h1><p>{section==='Overview'?'Intelligence and decision support across migration waves.':section==='Migration Studio'?'Configure source systems, target formats, conversion strategy and private AI.':section==='Data Quality Lab'?'Profile, clean and validate CSV samples in your browser.':section==='Exceptions'?'Investigate, classify, and route synthetic migration exceptions.':section==='Migration Memory'?'Evidence-backed, approved remediation knowledge.':section==='SAP Readiness'?'Domain-level gates based on explicit exceptions.':section==='Critical Path'?'Prioritise simulated blockers threatening release readiness.':'Export traceable synthetic decision evidence.'}</p></div><Pill tone="quiet">READ-ONLY MIGRATION</Pill></div>
     {error&&<div className="error" role="alert">{error}<button onClick={()=>setError('')}>Dismiss</button></div>}
     {section==='Migration Studio'&&<MigrationStudio/>}
+    {section==='Data Quality Lab'&&<DataQualityLab/>}
     {section==='Overview'&&<><div className="metrics">
       <Metric label="MIGRATION READINESS" value={totalReadiness+'%'} foot="Based on open exception count" icon={<Activity/>} />
       <Metric label="OPEN EXCEPTIONS" value={String(open).padStart(2,'0')} foot={items.length+' total tracked'} icon={<Database/>}/>
