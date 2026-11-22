@@ -70,18 +70,6 @@ def read_snapshot(path):
     by_id={row[0]:row for row in entries}
     allowed={"draft","approved","rejected","superseded"}
     drafts=set()
-    successors={}
-    for row in entries:
-        if row[-1] is not None and row[7] in ('approved','superseded'):
-            successors.setdefault(row[-1],[]).append(row)
-    for parent,children in successors.items():
-        if len(children)>1:
-            raise ValueError('Source contains competing reviewed successors')
-        if by_id[parent][7] != 'superseded':
-            raise ValueError('Reviewed successor has non-superseded predecessor')
-    for row in entries:
-        if row[7]=='superseded' and row[0] not in successors:
-            raise ValueError('Superseded entry lacks a reviewed successor')
     for row in entries:
         identifier,domain,target_object,_,_,_,version,state,*_=row
         predecessor=row[-1]
@@ -95,13 +83,28 @@ def read_snapshot(path):
                 if predecessor in drafts:
                     raise ValueError("Source contains competing draft successors")
                 drafts.add(predecessor)
-            seen={identifier}
-            cursor=predecessor
-            while cursor is not None:
-                if cursor in seen:
-                    raise ValueError("Source contains a supersession cycle")
-                seen.add(cursor)
-                cursor=by_id[cursor][-1]
+    # Validate the graph before assessing review state, so cycles are
+    # reported accurately even when they also violate approval invariants.
+    for row in entries:
+        seen=set()
+        cursor=row[0]
+        while cursor is not None:
+            if cursor in seen:
+                raise ValueError("Source contains a supersession cycle")
+            seen.add(cursor)
+            cursor=by_id[cursor][-1]
+    successors={}
+    for row in entries:
+        if row[-1] is not None and row[7] in ('approved','superseded'):
+            successors.setdefault(row[-1],[]).append(row)
+    for parent,children in successors.items():
+        if len(children)>1:
+            raise ValueError('Source contains competing reviewed successors')
+        if by_id[parent][7] != 'superseded':
+            raise ValueError('Reviewed successor has non-superseded predecessor')
+    for row in entries:
+        if row[7]=='superseded' and row[0] not in successors:
+            raise ValueError('Superseded entry lacks a reviewed successor')
     return entries,events
 
 def migration_plan(path):
