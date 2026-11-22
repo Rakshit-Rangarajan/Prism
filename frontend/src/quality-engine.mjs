@@ -26,6 +26,7 @@ export function parseCSV(input, maxRows=20000, maxColumns=200) {
  }
  if(inQuotes)throw new Error('Unterminated quoted CSV field');
  if(field!==''||row.length){row.push(field);rows.push(row)}
+ if(rows.length>maxRows+1)throw new Error('CSV exceeds the '+maxRows+'-row preview limit');
  if(!rows.length)throw new Error('The CSV is empty');
  const headers=rows.shift().map((h,i)=>h.trim()||'Column '+(i+1));
  if(headers.length>maxColumns)throw new Error('Too many columns');
