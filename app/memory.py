@@ -91,6 +91,21 @@ def search_memory(q: str = Query(default="", max_length=250), domain: str = Quer
             rows=sorted(ranked,key=lambda row:(-row["retrieval_score"],-row["id"]))
         return {"query":q,"domain":domain,"target_object":target_object,"results":rows[:limit],"retrieval":"bm25-lexical","approved_only":True}
 
+@router.get("/integrity")
+def memory_integrity():
+    """Read-only, authenticated synthetic governance preflight."""
+    from .memory_integrity import evaluate_memory_integrity
+    with connection() as c:
+        ensure_schema(c)
+        entries = [dict(row) for row in c.execute(
+            "SELECT id,domain,target_object,version,state,reviewer,reviewed_at,supersedes_id FROM memory_entries ORDER BY id"
+        )]
+        events = [dict(row) for row in c.execute(
+            "SELECT entry_id FROM memory_events ORDER BY id"
+        )]
+    return evaluate_memory_integrity(entries, events)
+
+
 @router.get("/entries")
 def list_entries():
     with connection() as c:
