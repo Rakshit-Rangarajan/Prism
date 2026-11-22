@@ -59,6 +59,13 @@ def recommendations(identifier:int):
         r=c.execute("SELECT * FROM exceptions WHERE id=?",(identifier,)).fetchone()
         if not r:raise HTTPException(404,"Not found")
         return {"exception":dict(r),"references":[dict(x) for x in c.execute("SELECT * FROM knowledge WHERE domain=? AND approved=1",(r["domain"],))]}
+@app.get("/api/readiness/gates",dependencies=[Depends(require_user)])
+def readiness_gates():
+    from .readiness_rules import evaluate_readiness
+    with connection() as c:
+        rows=[dict(r) for r in c.execute("SELECT id,domain,severity,state FROM exceptions ORDER BY id")]
+    return evaluate_readiness(rows)
+
 @app.get("/api/readiness",dependencies=[Depends(require_user)])
 def readiness():
     with connection() as c:

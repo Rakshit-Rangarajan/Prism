@@ -12,7 +12,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY app ./app
 COPY --from=ui-build /build/frontend/dist ./frontend/dist
 COPY tests ./tests
-RUN python -m unittest discover -s tests -p 'test_memory.py' -v
+RUN python -m unittest discover -s tests -p 'test_*.py' -v
 ENV PORT=10000
 EXPOSE 10000
 CMD ["sh","-c","uvicorn app.server:app --host 0.0.0.0 --port ${PORT:-10000}"]
