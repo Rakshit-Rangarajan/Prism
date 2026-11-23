@@ -16,8 +16,13 @@ def connection():
     c=sqlite3.connect(DB);c.row_factory=sqlite3.Row
     try:
         yield c
+    except BaseException:
+        c.rollback()
+        raise
+    else:
         c.commit()
-    finally:c.close()
+    finally:
+        c.close()
 def require_user(creds:HTTPBasicCredentials|None=Depends(auth)):
     pw=os.getenv("PRISM_DEMO_PASSWORD")
     if not pw:raise HTTPException(503,"Set PRISM_DEMO_PASSWORD to enable demo")
