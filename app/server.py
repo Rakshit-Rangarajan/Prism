@@ -91,3 +91,7 @@ app.mount('/assets',StaticFiles(directory=str(Path(__file__).resolve().parent.pa
 # Register isolated, approval-gated Migration Memory catalog.
 from .memory import router as memory_router
 app.include_router(memory_router)
+
+# Validated design-only migration blueprints (no execution endpoints).
+from .blueprints import router as blueprints_router
+app.include_router(blueprints_router)
