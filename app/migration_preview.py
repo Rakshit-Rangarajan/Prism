@@ -7,6 +7,8 @@ from decimal import Decimal, InvalidOperation
 from typing import Any
 import re
 
+MAX_TEXT_LENGTH = 4096
+MAX_FIELD_NAME_LENGTH = 128
 SUPPORTED = frozenset({"text", "integer", "decimal", "boolean"})
 INTEGER = re.compile(r"^[+-]?[0-9]+$")
 DECIMAL = re.compile(r"^[+-]?[0-9]+(?:\.[0-9]+)?$")
@@ -24,7 +26,10 @@ def _convert(value: Any, kind: str) -> Any:
     if isinstance(value, (dict, list, tuple, set)):
         raise ValueError("nested values are unsupported")
     if kind == "text":
-        return str(value)
+        text = str(value)
+        if len(text) > MAX_TEXT_LENGTH:
+            raise ValueError("text value exceeds 4096 characters")
+        return text
     if kind == "integer":
         if isinstance(value, bool) or not INTEGER.fullmatch(str(value).strip()):
             raise ValueError("invalid integer")
@@ -57,7 +62,10 @@ def preview_migration(rows: list[dict[str, Any]], mappings: list[FieldMap], *, m
         raise ValueError("mapping count must be 1..100")
     if len({m.target for m in mappings}) != len(mappings):
         raise ValueError("duplicate target fields")
-    if any(not m.source or not m.target or m.target_type not in SUPPORTED for m in mappings):
+    if any(not isinstance(m, FieldMap) or not isinstance(m.source, str) or not isinstance(m.target, str)
+           or not m.source.strip() or not m.target.strip()
+           or len(m.source) > MAX_FIELD_NAME_LENGTH or len(m.target) > MAX_FIELD_NAME_LENGTH
+           or m.target_type not in SUPPORTED or not isinstance(m.required, bool) for m in mappings):
         raise ValueError("invalid field mapping")
     output, errors = [], []
     for index, row in enumerate(rows):
