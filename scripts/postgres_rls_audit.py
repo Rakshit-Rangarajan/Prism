@@ -71,6 +71,13 @@ def audit_connection(conn):
                       and "current_setting" in p[3].lower()]
             if exists and has_policy and not scoped:
                 issues.append("tenant_scoped_select_policy_missing")
+            # Permissive policies combine with OR: one unscoped SELECT can bypass the boundary.
+            for policy_name, permissive, command, using_expr, check_expr in policies.get(name, []):
+                if permissive == "PERMISSIVE" and command in ("ALL", "SELECT"):
+                    predicate = (using_expr or "").lower()
+                    if "tenant_id" not in predicate or "current_setting" not in predicate:
+                        issues.append("unscoped_permissive_select_policy")
+                        break
             if not exists:issues.append("table_missing")
             if exists and not enabled:issues.append("rls_disabled")
             if exists and not forced:issues.append("rls_not_forced")
