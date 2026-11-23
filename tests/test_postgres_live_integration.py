@@ -5,6 +5,7 @@ Requires a DB whose name is exactly prism_integration_test, on loopback.
 """
 import os
 import unittest
+from unittest import mock
 from urllib.parse import urlsplit
 
 from scripts.pgvector_smoke import inspect_vector_connection
@@ -38,15 +39,15 @@ class DisposablePostgresTests(unittest.TestCase):
         except ImportError:
             raise unittest.SkipTest("Install psycopg[binary] locally for integration testing")
         cls.psycopg = psycopg
+        # Prepare extension once in the explicitly named disposable test database.
+        with psycopg.connect(cls.dsn, connect_timeout=5) as conn:
+            conn.execute('CREATE EXTENSION IF NOT EXISTS vector')
 
     def connect(self):
         return self.psycopg.connect(self.dsn, connect_timeout=5)
 
     def test_pgvector_real_operator_and_read_only_transaction(self):
         with self.connect() as conn:
-            # Test-only extension installation; explicit isolated DB.
-            conn.execute("CREATE EXTENSION IF NOT EXISTS vector")
-            conn.commit()
             report = inspect_vector_connection(conn)
             self.assertEqual(report["status"], "passed")
             self.assertTrue(report["read_only"])
@@ -74,7 +75,7 @@ class DisposablePostgresTests(unittest.TestCase):
 
     def test_wrong_database_and_remote_host_fail_closed(self):
         with self.assertRaisesRegex(RuntimeError, "loopback"):
-            with unittest.mock.patch.dict(os.environ, {
+            with mock.patch.dict(os.environ, {
                 "PRISM_INTEGRATION_TEST": "1",
                 "PRISM_INTEGRATION_DSN": "postgresql://u:p@production.example/prism_integration_test",
             }):
