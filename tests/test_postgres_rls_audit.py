@@ -57,6 +57,24 @@ class AuditTests(unittest.TestCase):
         result=audit_connection(Conn(restrictive=True))
         self.assertFalse(result["structural_prerequisites_pass"])
         self.assertIn("tenant_scoped_select_policy_missing",result["tables"]["memory_entries"]["issues"])
+    def test_extra_permissive_select_policy_cannot_bypass_tenant_boundary(self):
+        class MixedPolicies(Conn):
+            def execute(self, sql, params=None):
+                if "FROM pg_catalog.pg_policies" in sql:
+                    self.calls.append((sql, params))
+                    rows = []
+                    for table in ("memory_entries", "memory_events", "memory_vectors"):
+                        rows.append((table, "tenant_policy", "PERMISSIVE", "SELECT",
+                                     "tenant_id = current_setting('app.tenant_id')", None))
+                        rows.append((table, "bypass_policy", "PERMISSIVE", "SELECT",
+                                     "owner_id = current_user", None))
+                    return Cursor(rows)
+                return super().execute(sql, params)
+        result = audit_connection(MixedPolicies())
+        self.assertFalse(result["structural_prerequisites_pass"])
+        for table in result["tables"].values():
+            self.assertIn("unscoped_permissive_select_policy", table["issues"])
+
     def test_missing_table_blocked(self):
         self.assertIn("table_missing",audit_connection(Conn(missing=True))["tables"]["memory_vectors"]["issues"])
     def test_no_dsn(self):
