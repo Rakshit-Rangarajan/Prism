@@ -38,5 +38,28 @@ class MigrationPreviewTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             preview_migration([], [])
 
+class MigrationPreviewSafetyTests(unittest.TestCase):
+    def test_oversized_text_fails_row_without_partial_output(self):
+        result = preview_migration([{"id": "1", "name": "x" * 4097}],
+            [FieldMap("id", "id", "integer"), FieldMap("name", "name", "text")])
+        self.assertEqual(result["valid_count"], 0)
+        self.assertEqual(result["invalid_count"], 1)
+        self.assertEqual(result["records"], [])
+        self.assertEqual(result["errors"][0]["field"], "name")
+        self.assertFalse(result["writes_performed"])
+
+    def test_mapping_validation_rejects_malformed_objects(self):
+        for mappings in ([object()], [FieldMap([], "target", "text")],
+                         [FieldMap("source", "target", "text", required="false")],
+                         [FieldMap("source", "x" * 129, "text")]):
+            with self.subTest(mappings=mappings):
+                with self.assertRaises(ValueError):
+                    preview_migration([], mappings)
+
+    def test_text_boundary_accepted(self):
+        result = preview_migration([{"name": "x" * 4096}], [FieldMap("name", "name", "text")])
+        self.assertEqual(result["valid_count"], 1)
+
+
 if __name__ == "__main__":
     unittest.main()
