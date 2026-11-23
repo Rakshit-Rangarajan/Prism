@@ -38,7 +38,7 @@ def audit_connection(conn):
             (list(TABLES),)
         ).fetchall()
         policy_rows = conn.execute(
-            "SELECT tablename, policyname, cmd, qual, with_check "
+            "SELECT tablename, policyname, permissive, cmd, qual, with_check "
             "FROM pg_catalog.pg_policies WHERE schemaname='public' "
             "AND tablename = ANY(%s)",
             (list(TABLES),)
@@ -49,8 +49,8 @@ def audit_connection(conn):
         columns = {name:nullable for name,column,nullable in column_rows
                    if column == REQUIRED_TENANT_COLUMN}
         policies = {}
-        for name,policy,cmd,qual,check in policy_rows:
-            policies.setdefault(name,[]).append((policy,cmd,qual,check))
+        for name,policy,permissive,cmd,qual,check in policy_rows:
+            policies.setdefault(name,[]).append((policy,permissive,cmd,qual,check))
         for name in TABLES:
             exists = name in relations
             enabled,forced,owner = relations.get(name,(False,False,False))
@@ -60,11 +60,17 @@ def audit_connection(conn):
             issues=[]
             # PostgreSQL OR-combines permissive policies: an unconditional
             # USING or WITH CHECK clause is a dangerous red flag.
-            for policy_name, command, using_expr, check_expr in policies.get(name, []):
+            for policy_name, permissive, command, using_expr, check_expr in policies.get(name, []):
                 for expression in (using_expr, check_expr):
                     if expression is not None and re.fullmatch(r"\s*\(*\s*true\s*\)*\s*", expression, re.I):
                         issues.append("unrestricted_policy_expression")
                         break
+            scoped = [p for p in policies.get(name, [])
+                      if p[1] == "PERMISSIVE" and p[2] in ("ALL", "SELECT")
+                      and p[3] and "tenant_id" in p[3].lower()
+                      and "current_setting" in p[3].lower()]
+            if exists and has_policy and not scoped:
+                issues.append("tenant_scoped_select_policy_missing")
             if not exists:issues.append("table_missing")
             if exists and not enabled:issues.append("rls_disabled")
             if exists and not forced:issues.append("rls_not_forced")
