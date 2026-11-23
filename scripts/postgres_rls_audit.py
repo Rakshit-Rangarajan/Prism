@@ -7,6 +7,7 @@ database role, not an administrator.
 import argparse
 import json
 import os
+import re
 
 TABLES = ("memory_entries", "memory_events", "memory_vectors")
 REQUIRED_TENANT_COLUMN = "tenant_id"
@@ -57,6 +58,13 @@ def audit_connection(conn):
             # Presence of a policy is not evidence that it correctly scopes access.
             has_policy = bool(policies.get(name))
             issues=[]
+            # PostgreSQL OR-combines permissive policies: an unconditional
+            # USING or WITH CHECK clause is a dangerous red flag.
+            for policy_name, command, using_expr, check_expr in policies.get(name, []):
+                for expression in (using_expr, check_expr):
+                    if expression is not None and re.fullmatch(r"\s*\(*\s*true\s*\)*\s*", expression, re.I):
+                        issues.append("unrestricted_policy_expression")
+                        break
             if not exists:issues.append("table_missing")
             if exists and not enabled:issues.append("rls_disabled")
             if exists and not forced:issues.append("rls_not_forced")
