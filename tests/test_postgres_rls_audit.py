@@ -11,9 +11,9 @@ class Cursor:
     def fetchall(self):return self.rows
 
 class Conn:
-    def __init__(self,superuser=False,bypass=False,forced=True,tenant=True,policies=True,missing=False,unrestricted=False):
+    def __init__(self,superuser=False,bypass=False,forced=True,tenant=True,policies=True,missing=False,unrestricted=False, unscoped=False, restrictive=False):
         self.superuser=superuser;self.bypass=bypass;self.forced=forced
-        self.tenant=tenant;self.policies=policies;self.missing=missing;self.unrestricted=unrestricted;self.calls=[]
+        self.tenant=tenant;self.policies=policies;self.missing=missing;self.unrestricted=unrestricted;self.unscoped=unscoped;self.restrictive=restrictive;self.calls=[]
     @contextlib.contextmanager
     def transaction(self):yield self
     def execute(self,sql,params=None):
@@ -25,7 +25,7 @@ class Conn:
         if "FROM information_schema.columns" in sql:
             return Cursor([(t,"tenant_id","NO" if self.tenant else "YES") for t in ("memory_entries","memory_events","memory_vectors")])
         if "FROM pg_catalog.pg_policies" in sql:
-            return Cursor([(t,"tenant_policy","ALL","(TRUE)" if self.unrestricted else "tenant_id = current_setting(...)","tenant_id = current_setting(...)") for t in ("memory_entries","memory_events","memory_vectors")] if self.policies else [])
+            return Cursor([(t,"tenant_policy","RESTRICTIVE" if self.restrictive else "PERMISSIVE","ALL","(TRUE)" if self.unrestricted else ("owner_id = current_setting(...)" if self.unscoped else "tenant_id = current_setting(...)"),"tenant_id = current_setting(...)") for t in ("memory_entries","memory_events","memory_vectors")] if self.policies else [])
         raise AssertionError("Unexpected SQL")
 
 class AuditTests(unittest.TestCase):
@@ -49,6 +49,14 @@ class AuditTests(unittest.TestCase):
         result=audit_connection(Conn(unrestricted=True))
         self.assertFalse(result["structural_prerequisites_pass"])
         self.assertIn("unrestricted_policy_expression",result["tables"]["memory_entries"]["issues"])
+    def test_unrelated_policy_is_not_tenant_boundary(self):
+        result=audit_connection(Conn(unscoped=True))
+        self.assertFalse(result["structural_prerequisites_pass"])
+        self.assertIn("tenant_scoped_select_policy_missing",result["tables"]["memory_entries"]["issues"])
+    def test_restrictive_only_policy_is_not_sufficient(self):
+        result=audit_connection(Conn(restrictive=True))
+        self.assertFalse(result["structural_prerequisites_pass"])
+        self.assertIn("tenant_scoped_select_policy_missing",result["tables"]["memory_entries"]["issues"])
     def test_missing_table_blocked(self):
         self.assertIn("table_missing",audit_connection(Conn(missing=True))["tables"]["memory_vectors"]["issues"])
     def test_no_dsn(self):
