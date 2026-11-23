@@ -60,13 +60,13 @@ def preview_migration(rows: list[dict[str, Any]], mappings: list[FieldMap], *, m
         raise ValueError("invalid or oversized sample")
     if not mappings or len(mappings) > 100:
         raise ValueError("mapping count must be 1..100")
-    if len({m.target for m in mappings}) != len(mappings):
-        raise ValueError("duplicate target fields")
     if any(not isinstance(m, FieldMap) or not isinstance(m.source, str) or not isinstance(m.target, str)
            or not m.source.strip() or not m.target.strip()
            or len(m.source) > MAX_FIELD_NAME_LENGTH or len(m.target) > MAX_FIELD_NAME_LENGTH
            or m.target_type not in SUPPORTED or not isinstance(m.required, bool) for m in mappings):
         raise ValueError("invalid field mapping")
+    if len({m.target for m in mappings}) != len(mappings):
+        raise ValueError("duplicate target fields")
     output, errors = [], []
     for index, row in enumerate(rows):
         if not isinstance(row, dict):
