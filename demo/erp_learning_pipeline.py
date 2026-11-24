@@ -129,7 +129,10 @@ class Demo:
                 for i, case in enumerate(SCENARIOS)]
 
     def report(self, results):
-        from demo.reconciliation import reconcile
+        if __package__:
+            from .reconciliation import reconcile
+        else:
+            from reconciliation import reconcile
         return reconcile(results, self.db)
 
 
