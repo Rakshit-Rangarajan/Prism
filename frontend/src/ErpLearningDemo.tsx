@@ -38,6 +38,16 @@ export function ErpLearningDemo(){
    setRun(null);
   }catch(e){setError(String(e))}finally{setBusy(false)}
  }
+ async function resetDemo(){
+  if(!window.confirm('Reset ONLY the synthetic ERP demo data and learned approvals? This cannot be undone.'))return;
+  setBusy(true);setError('');
+  try{
+   await api('reset',{method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({confirmation:'RESET SYNTHETIC DEMO'})});
+   setRun(null);setScenarios([]);
+   setMessage('Synthetic demo reset. Start with Preview 20 records.');
+  }catch(e){setError(String(e))}finally{setBusy(false)}
+ }
  function exportReport(){
   if(!run)return;
   const b=new Blob([JSON.stringify(run,null,2)],{type:'application/json'});
@@ -55,6 +65,7 @@ export function ErpLearningDemo(){
     <button disabled={busy||!run?.reconciliation.lessons.some(x=>x.signature==='amount:legacy_format'&&!x.approved)} className="small-button" onClick={approve}><ShieldCheck size={16}/> Approve learned rule</button>
     <button disabled={busy} className="small-button" onClick={()=>runStep(true)}><Database size={16}/> Execute local migration</button>
     <button disabled={!run} className="small-button" onClick={exportReport}>Export reconciliation JSON</button>
+    <button disabled={busy} className="small-button" onClick={resetDemo}>Restart synthetic demo</button>
    </div>
    {busy&&<p role="status"><RefreshCcw size={15}/> Processing synthetic records…</p>}
    {error&&<p role="alert" className="error">{error}</p>}
