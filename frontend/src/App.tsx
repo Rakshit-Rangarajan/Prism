@@ -8,11 +8,11 @@ type Exception={id:number;wave:string;domain:string;object:string;error:string;s
 type Knowledge={id:number;domain:string;title:string;resolution:string;evidence:string;approved:number;version:number};
 type Readiness={domain:string;total:number;open:number;blockers:number};
 type Recommendation={exception:Exception;references:Knowledge[]};
-const sections=['Overview','Migration Studio','ERP Learning Demo','Data Quality Lab','Exceptions','Migration Memory','SAP Readiness','Critical Path','Evidence'] as const;
+const sections=['Overview','ERP Learning Demo','Migration Studio','Data Quality Lab','Exceptions','Migration Memory','SAP Readiness','Critical Path','Evidence'] as const;
 type Section=typeof sections[number];
 async function get<T>(endpoint:string,options?:RequestInit):Promise<T>{const r=await fetch('/api/'+endpoint,options);if(!r.ok){const e=await r.text();throw Error(e.slice(0,220)||('Request failed '+r.status));}return r.json()}
 function Pill({children,tone='normal'}:{children:React.ReactNode;tone?:string}){return <span className={'pill '+tone}>{children}</span>}
-const navIcons=[LayoutDashboard,Network,RefreshCcw,Database,AlertTriangle,BookOpen,ShieldCheck,Network,FileCheck2];
+const navIcons=[LayoutDashboard,RefreshCcw,Network,Database,AlertTriangle,BookOpen,ShieldCheck,Network,FileCheck2];
 export default function App(){
  const [section,setSection]=useState<Section>('Overview');const [items,setItems]=useState<Exception[]>([]);const [knowledge,setKnowledge]=useState<Knowledge[]>([]);
  const [readiness,setReadiness]=useState<Readiness[]>([]);const [selected,setSelected]=useState<number|null>(null);const [recommendation,setRecommendation]=useState<Recommendation|null>(null);
@@ -38,6 +38,12 @@ export default function App(){
    <main>
     <div className="page-heading"><div><div className="eyebrow">PREDICTIVE RISK INTELLIGENCE</div><h1>{section==='Overview'?'Migration Command Centre':section}</h1><p>{section==='Overview'?'Intelligence and decision support across migration waves.':section==='Migration Studio'?'Configure source systems, target formats, conversion strategy and private AI.':section==='ERP Learning Demo'?'Run 20 synthetic ERP cases, review errors, approve fixes and replay migration.':section==='Data Quality Lab'?'Profile, clean and validate CSV samples in your browser.':section==='Exceptions'?'Investigate, classify, and route synthetic migration exceptions.':section==='Migration Memory'?'Evidence-backed, approved remediation knowledge.':section==='SAP Readiness'?'Preliminary exception-based readiness; not SAP acceptance.':section==='Critical Path'?'Prioritise simulated blockers threatening release readiness.':'Export traceable synthetic decision evidence.'}</p></div><Pill tone="quiet">READ-ONLY MIGRATION</Pill></div>
     {error&&<div className="error" role="alert">{error}<button onClick={()=>setError('')}>Dismiss</button></div>}
+    {section==='Overview'&&<section className="panel" style={{marginBottom:20,padding:24}}>
+      <div className="eyebrow">START HERE · GUIDED DEMO</div>
+      <h2 style={{marginTop:10}}>See PRISM fix a migration error and remember the correction.</h2>
+      <p style={{marginTop:10,marginBottom:18}}>No database setup needed for this synthetic demonstration. Start with 20 example records, review the failures, approve a safe correction, and run it again. The other sections are advanced tools.</p>
+      <button className="small-button" onClick={()=>select('ERP Learning Demo')} style={{padding:'13px 20px',fontWeight:700}}>Start guided migration <ArrowRight size={17}/></button>
+    </section>}
     {section==='Migration Studio'&&<MigrationStudio/>}
     {section==='ERP Learning Demo'&&<ErpLearningDemo/>}
     {section==='Data Quality Lab'&&<DataQualityLab/>}
