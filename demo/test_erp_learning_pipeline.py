@@ -40,6 +40,26 @@ class LearningDemoTests(unittest.TestCase):
         self.assertIn("amount:non_finite", result["errors"])
         self.assertEqual(self.demo.db.execute("SELECT COUNT(*) FROM migrated").fetchone()[0], 0)
 
+    def test_first_run_fails_and_approved_replay_improves_outcome(self):
+        before = self.demo.run(apply=False)
+        initial_rejections = sum(r["status"] == "rejected" for r in before)
+        initial_formats = [
+            r for r in before if "amount:legacy_format" in r.get("errors", [])
+        ]
+        self.assertEqual(len(initial_formats), 3)
+        self.assertTrue(self.demo.approve("amount:legacy_format"))
+        after = self.demo.run(apply=True)
+        final_rejections = sum(r["status"] == "rejected" for r in after)
+        self.assertLess(final_rejections, initial_rejections)
+        corrected = [
+            r for r in after
+            if "amount:legacy_format" in r.get("reused_lessons", [])
+        ]
+        self.assertEqual(len(corrected), 3)
+        self.assertTrue(all(r["status"] == "migrated" for r in corrected))
+        self.assertEqual(self.demo.report(after)["migrated_this_run"],
+                         self.demo.report(after)["target_total_records"])
+
     def test_lesson_requires_approval(self):
         first = self.demo.migrate("currency_symbol", 4, apply=True)
         self.assertIn("amount:legacy_format", first["errors"])
