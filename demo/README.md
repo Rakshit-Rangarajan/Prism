@@ -18,3 +18,29 @@ The first run previews 20 synthetic scenarios. The second attempts a local SQLit
 **Limitations:** This initial increment uses SQLite, not PostgreSQL; it has no UI or API integration, no ML training, no external ERP source adapter, and no real SAP target. Approval is a local command-line demonstration, not authenticated enterprise governance. No production deployment is implied. Do not merge until full repository tests and security review pass.
 
 **Next increments:** integrate PostgreSQL and tenant-scoped governance, add API/UI stepper, export reconciliation report, add regression and Playwright tests, and deploy to staging before production.
+
+## Integrated PRISM demo UI/API (feature branch only)
+
+After installing the repository's backend and frontend dependencies, run the app normally.
+In the sidebar open **ERP Learning Demo**.
+
+1. **Preview 20 records**: generates synthetic source input and records issues in isolated local demo SQLite; target records remain unchanged.
+2. **Approve learned rule**: after inspection, authorize only the demonstrated `amount:legacy_format` normalization. Approval requires exact confirmation and existing Basic Auth.
+3. **Execute local migration**: validates each record and writes accepted records to the isolated synthetic SQLite target, preserving rejections for review.
+4. **Export reconciliation JSON**: includes per-record results, rejected signatures, target counts and reused lesson evidence.
+
+API routes (all protected by existing PRISM Basic Auth): `GET /api/demo/erp/scenarios`, `POST /api/demo/erp/run` with `{"apply":false|true}`, `GET /api/demo/erp/lessons`, and `POST /api/demo/erp/lessons/approve` with `{"signature":"amount:legacy_format","confirmation":"APPROVE SYNTHETIC RULE"}`.
+
+The demo SQLite path is configured server-side with `PRISM_ERP_DEMO_DB` and defaults to `/tmp/prism_erp_learning.sqlite3`. Avoid placing it under a production DB path. On ephemeral hosts it will **not** survive instance replacement; use a disposable local test setup for the approval/replay demonstration. Repeated execution against an unchanged target correctly produces duplicate-ID rejections. For a clean replay, start with a *new isolated test database path*, not a production database. No web-accessible reset endpoint is provided.
+
+### Release gates before merge
+
+```bash
+python -m unittest discover -s demo -p 'test_*.py' -v
+python -m unittest discover -s tests -p 'test_*.py' -v
+cd frontend && npm ci && npm run build
+```
+
+Then verify via browser with PRISM Basic Auth that the source is synthetic, preview has zero target writes, unauthenticated requests are rejected, approval is explicit, replay reuses only approved rules, and the downloaded report matches the displayed counts. No production deploy or PR merge until gates pass.
+
+**Safety boundaries:** Not tenant-isolated PostgreSQL, not an ERP/SAP connector, and not trained machine learning. Current approved learning is a rule-memory demonstration. The full PRISM roadmap still requires PostgreSQL+pgvector, authenticated tenant isolation, durable evidence history, AI retrieval, and real staging E2E validation.
