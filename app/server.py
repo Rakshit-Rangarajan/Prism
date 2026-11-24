@@ -110,3 +110,8 @@ app.include_router(memory_router)
 # Authenticated, synthetic-only ERP demonstration. Never uses enterprise records.
 from .erp_demo import router as erp_demo_router
 app.include_router(erp_demo_router, dependencies=[Depends(require_user)])
+
+# Company-scoped learning pipeline: per-company examples, retrieval, training,
+# evaluation and model registry. Artifacts never cross company boundaries.
+from .company_learning import router as company_learning_router
+app.include_router(company_learning_router)

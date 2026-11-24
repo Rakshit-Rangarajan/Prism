@@ -1,0 +1,9 @@
+# OPTIONAL, OFFLINE-ONLY DEPENDENCIES FOR TRUE LORA FINE-TUNING
+# Not installed by the normal PRISM deployment. Install only in an approved
+# environment with a locally cached base model; the trainer makes no downloads.
+torch>=2.1,<3
+transformers>=4.40,<5
+peft>=0.10,<1
+datasets>=2.18,<4
+accelerate>=0.28,<2
+bitsandbytes>=0.43,<1  # only required for --4bit
