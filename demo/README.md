@@ -44,3 +44,14 @@ cd frontend && npm ci && npm run build
 Then verify via browser with PRISM Basic Auth that the source is synthetic, preview has zero target writes, unauthenticated requests are rejected, approval is explicit, replay reuses only approved rules, and the downloaded report matches the displayed counts. No production deploy or PR merge until gates pass.
 
 **Safety boundaries:** Not tenant-isolated PostgreSQL, not an ERP/SAP connector, and not trained machine learning. Current approved learning is a rule-memory demonstration. The full PRISM roadmap still requires PostgreSQL+pgvector, authenticated tenant isolation, durable evidence history, AI retrieval, and real staging E2E validation.
+
+## Live presentation rehearsal (after build and staging verification)
+
+1. Open **ERP Learning Demo**, then choose **Restart synthetic demo**. The confirmation resets only this demo's isolated local tables.
+2. Choose **Preview 20 records**. Show rejected currency formats and the repeated customer ID. Target count remains zero.
+3. Explain that the unapproved rule appears in **Remembered lessons** with observations but is blocked from use.
+4. Choose **Approve learned rule**, confirm, then **Execute local migration**.
+5. Point to the reductions in rejected records, the three uses of `amount:legacy_format`, the remaining errors requiring steward review, and **Export reconciliation JSON**.
+6. To repeat, reset the synthetic demo again. The reset also clears approvals, intentionally returning to the initial state.
+
+The reconciliation metric verifies *run-level counts and unique inserted identifiers*, not complete financial balancing or an enterprise migration guarantee. SQLite state on Render's free ephemeral filesystem can disappear after restart. The demonstration requires staging browser verification, full Docker build, authentication checks, and written release approval before merging to `main` or replacing the live deployment.
