@@ -72,3 +72,23 @@ def approve_lesson(request: ApprovalRequest):
         return {"synthetic": True, "signature": request.signature, "approved": True}
     finally:
         engine.db.close()
+
+
+class ResetRequest(BaseModel):
+    confirmation: str
+
+
+@router.post("/reset")
+def reset_demo(request: ResetRequest):
+    """Reset only the two dedicated synthetic-demo tables for repeatable presentations."""
+    if request.confirmation != "RESET SYNTHETIC DEMO":
+        raise HTTPException(422, "Explicit synthetic-demo reset confirmation required")
+    engine = _open()
+    try:
+        with engine.db:
+            engine.db.execute("DELETE FROM migrated")
+            engine.db.execute("DELETE FROM lessons")
+        return {"synthetic": True, "reset": True,
+                "message": "Synthetic ERP demo records and lessons cleared."}
+    finally:
+        engine.db.close()
