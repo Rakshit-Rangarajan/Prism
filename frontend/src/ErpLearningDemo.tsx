@@ -25,7 +25,7 @@ export function ErpLearningDemo(){
     api<{scenarios:Scenario[]}>('scenarios'),
     api<Run>('run',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({apply})})
    ]);
-   setScenarios(dataset.scenarios);setRun(result);setStep(apply?3:1);
+   setScenarios(dataset.scenarios);setRun(result);setStep(apply?3:result.reconciliation.lessons.some(x=>x.signature==='amount:legacy_format'&&x.approved)?2:1);
    setMessage(apply?'Local synthetic target updated. Review reconciliation.':'Preview complete; no target records written.');
   }catch(e){setError(String(e))}finally{setBusy(false)}
  }
