@@ -17,6 +17,7 @@ export function ErpLearningDemo(){
  const [busy,setBusy]=useState(false);
  const [error,setError]=useState('');
  const [message,setMessage]=useState('');
+ const [step,setStep]=useState(0);
  async function runStep(apply:boolean){
   setBusy(true);setError('');setMessage('');
   try{
@@ -24,7 +25,7 @@ export function ErpLearningDemo(){
     api<{scenarios:Scenario[]}>('scenarios'),
     api<Run>('run',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({apply})})
    ]);
-   setScenarios(dataset.scenarios);setRun(result);
+   setScenarios(dataset.scenarios);setRun(result);setStep(apply?3:1);
    setMessage(apply?'Local synthetic target updated. Review reconciliation.':'Preview complete; no target records written.');
   }catch(e){setError(String(e))}finally{setBusy(false)}
  }
@@ -35,7 +36,7 @@ export function ErpLearningDemo(){
    await api('lessons/approve',{method:'POST',headers:{'Content-Type':'application/json'},
     body:JSON.stringify({signature:'amount:legacy_format',confirmation:'APPROVE SYNTHETIC RULE'})});
    setMessage('Correction approved and remembered. Replay to observe the difference.');
-   setRun(null);
+   setRun(null);setStep(2);
   }catch(e){setError(String(e))}finally{setBusy(false)}
  }
  async function resetDemo(){
@@ -44,7 +45,7 @@ export function ErpLearningDemo(){
   try{
    await api('reset',{method:'POST',headers:{'Content-Type':'application/json'},
     body:JSON.stringify({confirmation:'RESET SYNTHETIC DEMO'})});
-   setRun(null);setScenarios([]);
+   setRun(null);setScenarios([]);setStep(0);
    setMessage('Synthetic demo reset. Start with Preview 20 records.');
   }catch(e){setError(String(e))}finally{setBusy(false)}
  }
@@ -59,12 +60,13 @@ export function ErpLearningDemo(){
   <div className="notice"><ShieldCheck size={20}/><div><b>Learning migration · synthetic ERP demonstration</b>
    <p>Twenty intentionally flawed customer records. Corrections are recorded and only reused after explicit approval. This does not connect to SAP or train an AI model.</p></div></div>
   <section className="panel">
-   <div className="panel-heading"><div><h2>Run the migration</h2><p>1. Preview errors → 2. Approve a safe rule → 3. Replay → 4. Inspect target and evidence</p></div></div>
+   <div className="panel-heading"><div><h2>{step===0?'Ready to begin':step===1?'Review the detected problems':step===2?'Correction approved — run migration':'Migration complete — review the evidence'}</h2>
+   <p>{step===0?'Start with 20 fictional customer records. Nothing will be written to the target yet.':step===1?'PRISM found problems. Approve the safe USD amount-format correction before executing. Other problems remain blocked.':step===2?'Your approved correction is remembered. Run the migration to see it automatically reused.':'Compare migrated and rejected records below, then download the report or restart the demo.'}</p></div></div>
    <div style={{display:'flex',flexWrap:'wrap',gap:12,padding:'0 0 16px'}}>
-    <button disabled={busy} className="small-button" onClick={()=>runStep(false)}>Preview 20 records</button>
-    <button disabled={busy||!run?.reconciliation.lessons.some(x=>x.signature==='amount:legacy_format'&&!x.approved)} className="small-button" onClick={approve}><ShieldCheck size={16}/> Approve learned rule</button>
-    <button disabled={busy} className="small-button" onClick={()=>runStep(true)}><Database size={16}/> Execute local migration</button>
-    <button disabled={!run} className="small-button" onClick={exportReport}>Export reconciliation JSON</button>
+    <button disabled={busy} className="small-button" onClick={()=>runStep(false)}>1. Find problems</button>
+    <button disabled={busy||step!==1||!run?.reconciliation.lessons.some(x=>x.signature==='amount:legacy_format'&&!x.approved)} className="small-button" onClick={approve}><ShieldCheck size={16}/> 2. Approve correction</button>
+    <button disabled={busy||step<2} className="small-button" onClick={()=>runStep(true)}><Database size={16}/> 3. Run migration</button>
+    <button disabled={!run} className="small-button" onClick={exportReport}>4. Download report</button>
     <button disabled={busy} className="small-button" onClick={resetDemo}>Restart synthetic demo</button>
    </div>
    {busy&&<p role="status"><RefreshCcw size={15}/> Processing synthetic records…</p>}
