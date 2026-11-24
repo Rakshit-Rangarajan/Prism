@@ -48,6 +48,19 @@ class DemoApiTests(unittest.TestCase):
         self.assertTrue(result["approved"])
         self.assertTrue(erp_demo.lessons()["lessons"])
 
+    def test_reset_requires_confirmation_and_clears_only_demo_state(self):
+        erp_demo.run_demo(erp_demo.RunRequest(apply=True))
+        before = erp_demo.lessons()["lessons"]
+        self.assertGreater(len(before), 0)
+        with self.assertRaises(HTTPException):
+            erp_demo.reset_demo(erp_demo.ResetRequest(confirmation="RESET"))
+        response = erp_demo.reset_demo(
+            erp_demo.ResetRequest(confirmation="RESET SYNTHETIC DEMO"))
+        self.assertTrue(response["synthetic"])
+        self.assertEqual(erp_demo.lessons()["lessons"], [])
+        after = erp_demo.run_demo(erp_demo.RunRequest(apply=False))
+        self.assertEqual(after["reconciliation"]["target_total_records"], 0)
+
     def test_replay_uses_persisted_approved_lesson(self):
         erp_demo.run_demo(erp_demo.RunRequest())
         erp_demo.approve_lesson(erp_demo.ApprovalRequest(
