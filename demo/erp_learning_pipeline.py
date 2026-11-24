@@ -125,8 +125,23 @@ class Demo:
                 "record": {k: row[k] for k in FIELDS}, "reused_lessons": reused}
 
     def run(self, apply=False):
-        return [self.migrate(case, i + 1, apply=apply)
-                for i, case in enumerate(SCENARIOS)]
+        """Detect duplicates within the source batch, including in dry-run mode."""
+        seen = set()
+        results = []
+        for i, case in enumerate(SCENARIOS):
+            source_id = sample(case, i + 1).get("customer_id")
+            normalized = source_id.strip() if isinstance(source_id, str) else None
+            if normalized and normalized in seen:
+                self.lesson("customer_id:duplicate",
+                            "Deduplicate source identifiers")
+                results.append({"scenario": case, "status": "rejected",
+                                "errors": ["customer_id:duplicate"],
+                                "reused_lessons": []})
+                continue
+            if normalized:
+                seen.add(normalized)
+            results.append(self.migrate(case, i + 1, apply=apply))
+        return results
 
     def report(self, results):
         if __package__:
