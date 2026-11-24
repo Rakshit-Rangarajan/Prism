@@ -91,3 +91,7 @@ app.mount('/assets',StaticFiles(directory=str(Path(__file__).resolve().parent.pa
 # Register isolated, approval-gated Migration Memory catalog.
 from .memory import router as memory_router
 app.include_router(memory_router)
+
+# Authenticated, synthetic-only ERP demonstration. Never uses enterprise records.
+from .erp_demo import router as erp_demo_router
+app.include_router(erp_demo_router, dependencies=[Depends(require_user)])
