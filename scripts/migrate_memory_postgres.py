@@ -47,13 +47,16 @@ def read_snapshot(path):
     source=Path(path).expanduser().resolve()
     if not source.is_file():
         raise FileNotFoundError(f"SQLite source does not exist: {source}")
-    with sqlite3.connect(source.as_uri()+"?mode=ro",uri=True) as db:
+    db=sqlite3.connect(source.as_uri()+"?mode=ro",uri=True)
+    try:
         db.row_factory=sqlite3.Row
         names={r[0] for r in db.execute("SELECT name FROM sqlite_master WHERE type='table'")}
         if not {"memory_entries","memory_events"}.issubset(names):
             raise ValueError("Source lacks versioned Migration Memory tables")
         entries=[tuple(row[c] for c in ENTRY_COLUMNS) for row in db.execute("SELECT * FROM memory_entries ORDER BY id")]
         events=[tuple(row[c] for c in EVENT_COLUMNS) for row in db.execute("SELECT * FROM memory_events ORDER BY id")]
+    finally:
+        db.close()
     event_ids={row[0] for row in events}
     if len(event_ids)!=len(events):
         raise ValueError('Duplicate source audit event identifiers')

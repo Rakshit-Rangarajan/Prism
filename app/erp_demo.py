@@ -6,7 +6,7 @@ import os
 from pathlib import Path
 
 from fastapi import APIRouter, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from demo.erp_learning_pipeline import Demo, SCENARIOS, sample
 
@@ -21,7 +21,9 @@ def _open():
 
 
 class RunRequest(BaseModel):
-    apply: bool = False
+    # Strict typing prevents strings such as "yes" from silently triggering a
+    # target write when a preview was intended.
+    apply: bool = Field(default=False, strict=True)
 
 
 class ApprovalRequest(BaseModel):
