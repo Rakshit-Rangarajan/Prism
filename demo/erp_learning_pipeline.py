@@ -1,5 +1,6 @@
 """Self-contained, offline synthetic ERP migration demo. No production writes."""
 import json
+import math
 import sqlite3
 from pathlib import Path
 
@@ -98,7 +99,9 @@ class Demo:
                     errors.append(sig)
         try:
             amount = float(amount)
-            if amount < 0:
+            if not math.isfinite(amount):
+                errors.append("amount:non_finite")
+            elif amount < 0:
                 errors.append("amount:negative")
         except (ValueError, TypeError):
             errors.append("amount:invalid")
@@ -125,6 +128,10 @@ class Demo:
         return [self.migrate(case, i + 1, apply=apply)
                 for i, case in enumerate(SCENARIOS)]
 
+    def report(self, results):
+        from demo.reconciliation import reconcile
+        return reconcile(results, self.db)
+
 
 if __name__ == "__main__":
     import argparse
@@ -138,7 +145,4 @@ if __name__ == "__main__":
         demo.lesson("amount:legacy_format", "Strip USD symbol and thousands separators")
         demo.approve("amount:legacy_format")
     results = demo.run(apply=args.apply)
-    print(json.dumps({"results": results,
-                      "migrated": sum(r["status"] == "migrated" for r in results),
-                      "rejected": sum(r["status"] == "rejected" for r in results)},
-                     indent=2))
+    print(json.dumps({"results": results, "reconciliation": demo.report(results)}, indent=2))
