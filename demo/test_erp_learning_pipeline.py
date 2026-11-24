@@ -24,6 +24,22 @@ class LearningDemoTests(unittest.TestCase):
         self.assertEqual(self.demo.db.execute(
             "SELECT count(*) FROM migrated").fetchone()[0], 0)
 
+    def test_preview_detects_duplicate_within_source_batch(self):
+        results = self.demo.run(apply=False)
+        duplicate = next(r for r in results if r["scenario"] == "duplicate_id")
+        self.assertEqual(duplicate["errors"], ["customer_id:duplicate"])
+        self.assertEqual(self.demo.db.execute("SELECT COUNT(*) FROM migrated").fetchone()[0], 0)
+
+    def test_nonfinite_amounts_fail_closed(self):
+        from unittest.mock import patch
+        with patch("demo.erp_learning_pipeline.sample", return_value={
+            "customer_id": "C777", "name": "Demo", "email": "test@example.com",
+            "amount": "NaN"
+        }):
+            result = self.demo.migrate("clean", 777, apply=True)
+        self.assertIn("amount:non_finite", result["errors"])
+        self.assertEqual(self.demo.db.execute("SELECT COUNT(*) FROM migrated").fetchone()[0], 0)
+
     def test_lesson_requires_approval(self):
         first = self.demo.migrate("currency_symbol", 4, apply=True)
         self.assertIn("amount:legacy_format", first["errors"])
