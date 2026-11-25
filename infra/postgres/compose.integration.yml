@@ -1,0 +1,21 @@
+# Disposable local integration database ONLY. Never point this at enterprise data.
+# No host volume: docker compose down --volumes deletes all test data.
+services:
+  prism-pgvector-test:
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_USER: prism_test
+      POSTGRES_PASSWORD: local_test_only_not_for_production
+      POSTGRES_DB: prism_integration_test
+    ports:
+      - "127.0.0.1:55432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U prism_test -d prism_integration_test"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+    tmpfs:
+      - /var/lib/postgresql/data
+    security_opt:
+      - no-new-privileges:true
+    restart: "no"
