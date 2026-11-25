@@ -1,13 +1,28 @@
-import os, sqlite3, secrets
+import json, os, sqlite3, secrets
 from pathlib import Path
 from contextlib import contextmanager
-from fastapi import FastAPI, Depends, HTTPException
-from fastapi.responses import FileResponse
+from fastapi import FastAPI, Depends, HTTPException, Request
+from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.security import HTTPBasic, HTTPBasicCredentials
 from pydantic import BaseModel
 
 app=FastAPI(title="PRISM",version="0.3-demo")
+
+@app.middleware("http")
+async def reject_non_finite_json(request:Request,call_next):
+    """Reject non-standard JSON constants before Pydantic can turn them into a 500."""
+    if request.headers.get("content-type","").split(";")[0].strip()=="application/json":
+        body=await request.body()
+        if body:
+            def invalid(constant:str):
+                raise ValueError(f"Invalid JSON constant: {constant}")
+            try:
+                json.loads(body,parse_constant=invalid)
+            except (ValueError,UnicodeDecodeError):
+                return JSONResponse(status_code=422,content={"detail":"Invalid JSON numeric literal"})
+    return await call_next(request)
+
 auth=HTTPBasic(auto_error=False)
 DB=os.getenv("PRISM_DB","/tmp/prism.sqlite3")
 @contextmanager
@@ -91,3 +106,7 @@ app.mount('/assets',StaticFiles(directory=str(Path(__file__).resolve().parent.pa
 # Register isolated, approval-gated Migration Memory catalog.
 from .memory import router as memory_router
 app.include_router(memory_router)
+
+# Authenticated, synthetic-only ERP demonstration. Never uses enterprise records.
+from .erp_demo import router as erp_demo_router
+app.include_router(erp_demo_router, dependencies=[Depends(require_user)])

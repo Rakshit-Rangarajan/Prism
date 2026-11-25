@@ -10,6 +10,17 @@ from app import memory
 import sqlite3
 
 class MemoryTests(unittest.TestCase):
+    @contextmanager
+    def direct_db(self):
+        # sqlite3's context manager commits but does not close; Windows cannot
+        # delete the temporary directory while a connection is still open.
+        c=sqlite3.connect(self.path)
+        try:
+            yield c
+            c.commit()
+        finally:
+            c.close()
+
     def setUp(self):
         self.temp=tempfile.TemporaryDirectory()
         self.path=os.path.join(self.temp.name,"memory.sqlite")
@@ -74,7 +85,7 @@ class MemoryTests(unittest.TestCase):
         old=self.create("Supplier mapping approved parent")
         memory.review_entry(old,memory.Review(action="approved",reviewer="Steward",note="Approved synthetic mapping"))
         memory.revise_entry(old,memory.Revision(title="Supplier mapping next version",resolution="Use a reviewed successor mapping.",evidence="SYNTH-REV-101"))
-        with sqlite3.connect(self.path) as c:
+        with self.direct_db() as c:
             with self.assertRaises(sqlite3.IntegrityError):
                 c.execute("""INSERT INTO memory_entries(domain,target_object,title,resolution,evidence,version,state,supersedes_id)
                     VALUES(?,?,?,?,?,?,?,?)""",("Vendor","SUPPLIER","Competing successor","A conflicting draft mapping.","SYNTH-REV-102",2,"draft",old))
@@ -84,7 +95,7 @@ class MemoryTests(unittest.TestCase):
         memory.review_entry(old,memory.Review(action="approved",reviewer="Steward",note="Validated predecessor"))
         new=memory.revise_entry(old,memory.Revision(title="Supplier reviewed successor",resolution="Corrected reviewed mapping details.",evidence="SYNTH-REV-103"))["id"]
         memory.review_entry(new,memory.Review(action="approved",reviewer="Steward",note="Validated successor"))
-        with sqlite3.connect(self.path) as c:
+        with self.direct_db() as c:
             self.assertEqual(c.execute("SELECT state FROM memory_entries WHERE id=?",(old,)).fetchone()[0],"superseded")
             self.assertEqual(c.execute("SELECT state FROM memory_entries WHERE id=?",(new,)).fetchone()[0],"approved")
             self.assertEqual(c.execute("SELECT COUNT(*) FROM memory_events WHERE action='superseded' AND entry_id=?",(old,)).fetchone()[0],1)
