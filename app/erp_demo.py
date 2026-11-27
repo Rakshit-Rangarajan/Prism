@@ -95,3 +95,34 @@ def reset_demo(request: ResetRequest):
                 "message": "Synthetic ERP demo records and lessons cleared."}
     finally:
         engine.db.close()
+
+
+class ExplainRequest(BaseModel):
+    question: str = Field(min_length=1, max_length=500)
+
+
+@router.post("/explain")
+def explain(request: ExplainRequest):
+    """Use a configured local OpenAI-compatible small language model; no fallback fiction."""
+    import json
+    from urllib.request import Request, urlopen
+    endpoint = os.getenv("PRISM_SLM_URL", "").rstrip("/")
+    model = os.getenv("PRISM_SLM_MODEL", "")
+    if not endpoint or not model:
+        raise HTTPException(503, "Local SLM is not configured. Set PRISM_SLM_URL and PRISM_SLM_MODEL.")
+    engine = _open()
+    try:
+        approved = [x for x in engine.report([])["lessons"] if x["approved"]]
+    finally:
+        engine.db.close()
+    prompt = "Explain synthetic ERP migration errors using approved evidence only. Do not claim live SAP or Qlik access, invent approvals, or execute changes. If evidence is insufficient, say so. Approved lessons: " + json.dumps(approved)
+    payload = json.dumps({"model": model, "messages": [{"role": "system", "content": prompt}, {"role": "user", "content": request.question}], "max_tokens": 180, "temperature": 0.2}).encode()
+    try:
+        req = Request(endpoint + "/chat/completions", data=payload, headers={"Content-Type": "application/json"})
+        with urlopen(req, timeout=40) as response:
+            answer = json.load(response)["choices"][0]["message"]["content"]
+        if not isinstance(answer, str) or not answer.strip():
+            raise ValueError("Empty inference")
+    except Exception:
+        raise HTTPException(503, "Configured SLM unavailable or returned an invalid response.")
+    return {"synthetic": True, "model": model, "answer": answer, "approved_evidence": approved}
