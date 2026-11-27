@@ -115,3 +115,6 @@ app.include_router(memory_router)
 # Authenticated, synthetic-only ERP demonstration. Never uses enterprise records.
 from .erp_demo import router as erp_demo_router
 app.include_router(erp_demo_router, dependencies=[Depends(require_user)])
+
+from .database_demo import router as database_demo_router
+app.include_router(database_demo_router, dependencies=[Depends(require_user)])
