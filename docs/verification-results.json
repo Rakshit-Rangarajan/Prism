@@ -12,11 +12,12 @@
     "torch": "2.11.0+cu128"
   },
   "tests": {
-    "backend_total": 126,
+    "backend_total": 133,
     "backend_skipped": 1,
     "legacy_demo_passed": 11,
     "frontend_passed": 6,
-    "typescript_and_vite_build": "passed"
+    "typescript_and_vite_build": "passed",
+    "browser_sign_in_and_dashboard": "verified in Codex in-app browser"
   },
   "pipeline": [
     {
@@ -276,7 +277,7 @@
     "evaluation_limit": "Held-out token loss on synthetic data; requires structured-output and semantic regression evaluation before promotion."
   },
   "pending": [
-    "Manual browser visual validation: computer-control URL detection blocked desktop verification.",
+    "Full migration workflow visual review; browser sign-in and dashboard are verified.",
     "Adapter conversion, structured-output regression testing and promotion; validated base model remains active.",
     "Live Qlik and SAP credentials/integration."
   ]

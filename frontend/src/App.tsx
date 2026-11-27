@@ -16,7 +16,7 @@ type Section=typeof sections[number];
 async function get<T>(endpoint:string,options?:RequestInit):Promise<T>{const r=await fetch('/api/'+endpoint,options);if(!r.ok){const e=await r.text();throw Error(e.slice(0,220)||('Request failed '+r.status));}return r.json()}
 function Pill({children,tone='normal'}:{children:React.ReactNode;tone?:string}){return <span className={'pill '+tone}>{children}</span>}
 const navIcons=[LayoutDashboard,BookOpen,RefreshCcw,Network,Database,AlertTriangle,BookOpen,ShieldCheck,Network,FileCheck2];
-export default function App(){
+export default function App({onSignOut}:{onSignOut?:()=>Promise<void>}){
  const [section,setSection]=useState<Section>('Overview');const [items,setItems]=useState<Exception[]>([]);const [knowledge,setKnowledge]=useState<Knowledge[]>([]);
  const [readiness,setReadiness]=useState<Readiness[]>([]);const [selected,setSelected]=useState<number|null>(null);const [recommendation,setRecommendation]=useState<Recommendation|null>(null);
  const [note,setNote]=useState('');const [query,setQuery]=useState('');const [filter,setFilter]=useState('all');const [busy,setBusy]=useState(false);const [error,setError]=useState('');const [mobile,setMobile]=useState(false);
@@ -37,7 +37,7 @@ export default function App(){
   </aside>
   {mobile&&<div className="backdrop" onClick={()=>setMobile(false)}/>}
   <div className="workspace">
-   <header className="topbar"><button className="mobile-menu" onClick={()=>setMobile(true)}><Menu size={21}/></button><span>Operations <ChevronRight size={15}/> <b>{section}</b></span><div className="topbar-right"><Pill tone="live"><span className="green-dot"/> DEMO MODE</Pill><button className="icon-button" title="Refresh data" onClick={load}><RefreshCcw size={17}/></button></div></header>
+   <header className="topbar"><button className="mobile-menu" onClick={()=>setMobile(true)}><Menu size={21}/></button><span>Operations <ChevronRight size={15}/> <b>{section}</b></span><div className="topbar-right"><Pill tone="live"><span className="green-dot"/> DEMO MODE</Pill><button className="icon-button" title="Refresh data" onClick={load}><RefreshCcw size={17}/></button>{onSignOut&&<button className="small-button" onClick={onSignOut}>Sign out</button>}</div></header>
    <main>
     <div className="page-heading"><div><div className="eyebrow">PREDICTIVE RISK INTELLIGENCE</div><h1>{section==='Overview'?'Migration Command Centre':section}</h1><p>{section==='Overview'?'Intelligence and decision support across migration waves.':section==='Migration Studio'?'Configure source systems, target formats, conversion strategy and private AI.':section==='Local AI & Learning'?'Analyze ERP sources locally, review structured recommendations, and reuse approved corrections.':section==='ERP Learning Demo'?'Run 20 synthetic ERP cases, review errors, approve fixes and replay migration.':section==='Data Quality Lab'?'Profile, clean and validate CSV samples in your browser.':section==='Exceptions'?'Investigate, classify, and route synthetic migration exceptions.':section==='Migration Memory'?'Evidence-backed, approved remediation knowledge.':section==='SAP Readiness'?'Preliminary exception-based readiness; not SAP acceptance.':section==='Critical Path'?'Prioritise simulated blockers threatening release readiness.':'Export traceable synthetic decision evidence.'}</p></div><Pill tone="quiet">SOURCE PROTECTED</Pill></div>
     {error&&<div className="error" role="alert">{error}<button onClick={()=>setError('')}>Dismiss</button></div>}

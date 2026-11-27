@@ -14,6 +14,8 @@ From the repository in PowerShell:
 
 Open `http://127.0.0.1:8091`. Username is `prism`; the generated local password is in `.local/settings.json`. This credential is separate from the hosted demo password. Startup verifies the quantized model hash, all 20 source dataset hashes, model availability, the company binding, and the actual read-only MySQL connection. It starts existing Podman/MySQL and launches the model and app in hidden background processes. It does not overwrite source databases or approved memory.
 
+Use the PRISM sign-in form rather than a browser-native password dialog. Browser sessions use a signed, HttpOnly, SameSite=Strict cookie with an eight-hour lifetime; hosted cookies require HTTPS. Signing out clears the browser cookie, and changing the configured demo password invalidates previous sessions. Cross-origin cookie-authenticated mutations are rejected. Existing HTTP Basic API clients continue to work. Browser sign-in and dashboard rendering were verified in the Codex in-app browser; the local password was not changed.
+
 ```powershell
 .venv\Scripts\python -m scripts.check_local_demo
 .\scripts\stop-local.ps1
@@ -88,4 +90,4 @@ npm run build --prefix frontend
 .venv\Scripts\python -m scripts.demo_local_pipeline --mysql --output .local/new-validation --model-batches 2
 ```
 
-The end-to-end command is explicitly a synthetic steward demonstration: it approves synthetic model recommendations, verifies export is blocked before approval, processes 20 datasets, checks source hashes/row counts/integrity, and records real model timing separately from retrieval. Use a fresh output directory. Desktop browser verification could not be completed in this session because the computer-control URL detector stopped the browser action; API and build verification do not replace a manual visual check.
+The end-to-end command is explicitly a synthetic steward demonstration: it approves synthetic model recommendations, verifies export is blocked before approval, processes 20 datasets, checks source hashes/row counts/integrity, and records real model timing separately from retrieval. Use a fresh output directory. The initial desktop-browser verification was blocked by URL detection. A later in-app browser check verified the new PRISM sign-in form and authenticated dashboard. Full migration-flow visual review remains separate from the completed API/build checks.

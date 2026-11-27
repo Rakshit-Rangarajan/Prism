@@ -1,11 +1,11 @@
-import json, os, sqlite3, secrets
+import json, os, sqlite3
 from pathlib import Path
 from contextlib import contextmanager
 from fastapi import FastAPI, Depends, HTTPException, Request
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
-from fastapi.security import HTTPBasic, HTTPBasicCredentials
 from pydantic import BaseModel
+from .authentication import require_user, router as authentication_router
 
 app=FastAPI(title="PRISM",version="0.3-demo")
 
@@ -23,7 +23,6 @@ async def reject_non_finite_json(request:Request,call_next):
                 return JSONResponse(status_code=422,content={"detail":"Invalid JSON numeric literal"})
     return await call_next(request)
 
-auth=HTTPBasic(auto_error=False)
 DB=os.getenv("PRISM_DB","/tmp/prism.sqlite3")
 @contextmanager
 def connection():
@@ -38,11 +37,6 @@ def connection():
         c.commit()
     finally:
         c.close()
-def require_user(creds:HTTPBasicCredentials|None=Depends(auth)):
-    pw=os.getenv("PRISM_DEMO_PASSWORD")
-    if not pw:raise HTTPException(503,"Set PRISM_DEMO_PASSWORD to enable demo")
-    if not creds or not (secrets.compare_digest(creds.username,"prism") and secrets.compare_digest(creds.password,pw)):
-        raise HTTPException(401,"Login required",headers={"WWW-Authenticate":"Basic realm=PRISM"})
 def seed():
     with connection() as c:
         c.executescript("""CREATE TABLE IF NOT EXISTS exceptions(id INTEGER PRIMARY KEY,wave TEXT,domain TEXT,object TEXT,error TEXT,severity TEXT,state TEXT DEFAULT 'open',owner TEXT,note TEXT);
@@ -65,7 +59,9 @@ def seed():
 seed()
 @app.get("/api/health")
 def health():return {"status":"ok","mode":"synthetic"}
-@app.get("/",dependencies=[Depends(require_user)])
+app.include_router(authentication_router)
+
+@app.get("/")
 def index():return FileResponse(Path(__file__).resolve().parent.parent / "frontend" / "dist" / "index.html")
 @app.get("/api/exceptions",dependencies=[Depends(require_user)])
 def exceptions():
