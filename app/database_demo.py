@@ -25,7 +25,7 @@ async def upload(request):
         raise HTTPException(422, "Upload a SQLite database file")
     return data
 
-def inspect_db(db, clean=False):
+def inspect_db(db, clean=False, blank_to_null=False, uppercase_codes=False):
     db.execute("PRAGMA trusted_schema=OFF")
     db.execute("PRAGMA foreign_keys=ON")
     tables = db.execute("SELECT name,sql FROM sqlite_schema WHERE type='table' AND name NOT LIKE 'sqlite_%'").fetchall()
@@ -53,9 +53,15 @@ def inspect_db(db, clean=False):
             triggers = db.execute("SELECT 1 FROM sqlite_schema WHERE type='trigger' AND tbl_name=?", (name,)).fetchone()
             eligible = not (pk or indexed or fk or referenced or triggers or 'CHECK' in sql.upper() or any(x[6] for x in cols))
             duplicates = db.execute(f"SELECT coalesce(sum(n-1),0) FROM (SELECT count(*) n FROM {q} WHERE {k} IS NOT NULL GROUP BY {k} HAVING count(*)>1)").fetchone()[0]
-            issues.append({"repeated_values":duplicates,"primary_key":bool(pk),"column":col,"type":typ,"nulls":nulls,"blank_text":blanks,"whitespace":whitespace,"trim_eligible":bool(eligible)})
+            code_field = col.casefold() in ("country_code","currency_code","unit_code","uom")
+            code_candidates = db.execute(f"SELECT count(*) FROM {q} WHERE typeof({k})='text' AND trim({k})!='' AND upper(trim({k})) COLLATE BINARY != {k} COLLATE BINARY").fetchone()[0] if code_field else 0
+            issues.append({"blank_to_null_eligible":bool(eligible and not required),"uppercase_code_eligible":bool(eligible and code_field),"code_candidates":code_candidates,"repeated_values":duplicates,"primary_key":bool(pk),"column":col,"type":typ,"nulls":nulls,"blank_text":blanks,"whitespace":whitespace,"trim_eligible":bool(eligible)})
             if clean and eligible and whitespace:
                 db.execute(f"UPDATE {q} SET {k}=trim({k}) WHERE typeof({k})='text' AND {k} COLLATE BINARY != trim({k}) COLLATE BINARY AND trim({k})!=''")
+            if clean and eligible and blank_to_null and not required and blanks:
+                db.execute(f"UPDATE {q} SET {k}=NULL WHERE typeof({k})='text' AND trim({k})=''")
+            if clean and eligible and uppercase_codes and code_field and code_candidates:
+                db.execute(f"UPDATE {q} SET {k}=upper(trim({k})) WHERE typeof({k})='text' AND trim({k})!=''")
         relationships = [{"target_table":r[2],"source_column":r[3],"target_column":r[4]} for r in db.execute(f"PRAGMA foreign_key_list({q})")]
         nonkeys = [ident(x[1]) for x in cols if not x[5] and not x[6]]
         duplicate_rows = 0
@@ -101,7 +107,9 @@ async def clean(request: Request):
         try:
             with sqlite3.connect(path) as db:
                 before=inspect_db(db)
-                inspect_db(db,clean=True)
+                blank_to_null=request.headers.get("x-prism-blank-to-null")=="APPROVED"
+                uppercase_codes=request.headers.get("x-prism-uppercase-codes")=="APPROVED"
+                inspect_db(db,clean=True,blank_to_null=blank_to_null,uppercase_codes=uppercase_codes)
                 after=inspect_db(db)
                 if db.execute("PRAGMA foreign_key_check").fetchone():
                     raise HTTPException(422,"Foreign key violations require review")
@@ -123,7 +131,7 @@ async def clean(request: Request):
                                     raise HTTPException(422,"CSV export exceeds demo limit")
                             archive.writestr(filename,stream.getvalue().encode("utf-8"))
                             manifest.append({"table":table["table"],"file":filename,"rows":table["rows"]})
-                        archive.writestr("reconciliation.json",json.dumps({"before":before,"after":after,"tables":manifest,"notes":"CSV nulls are empty; binary values are hexadecimal. SQLite copy preserves native types. No live Qlik load performed."},indent=2))
+                        archive.writestr("reconciliation.json",json.dumps({"before":before,"after":after,"approved_rules":{"trim":True,"blank_to_null":blank_to_null,"uppercase_codes":uppercase_codes},"tables":manifest,"notes":"CSV nulls are empty; binary values are hexadecimal. SQLite copy preserves native types. No live Qlik load performed."},indent=2))
                         archive.writestr("prism-processed.sqlite",path.read_bytes())
                 return Response(output.getvalue(),media_type="application/zip",headers={"Content-Disposition":"attachment; filename=prism-qlik-package.zip"})
             return Response(path.read_bytes(),media_type="application/octet-stream",headers={"Content-Disposition":"attachment; filename=prism-processed.sqlite"})
