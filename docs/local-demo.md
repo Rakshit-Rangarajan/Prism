@@ -113,7 +113,27 @@ Executable operations are `trim`, nullable `blank_to_null`, code `uppercase`, em
 
 Execution stages are deterministic: trim, blank-to-NULL, value crosswalks, uppercase, decimal parsing, then email-domain normalization. Crosswalks run before uppercasing so source spellings remain matchable regardless of model/retrieval rule ordering. The export audit records the actual execution order.
 
-ERP validation reports missing values, spaces, allowed country/currency/UOM vocabularies, invalid/negative amounts, invalid ISO dates, malformed emails, unknown cost centres, orphan invoice references and duplicate business-record candidates. These are illustrative ERP vocabularies, not comprehensive SAP validation. Findings can overlap; the quality score is `100 × max(0, 1 − finding_count/cell_count)`, not certification or acceptance. CSV NULLs appear empty and binary values are hexadecimal; SQLite retains type/null fidelity. Qlik-compatible exports remain available; live Qlik, SAP and enterprise credentials are not configured.
+ERP validation reports missing values, spaces, allowed country/currency/UOM vocabularies, invalid/negative amounts, invalid ISO dates, malformed emails, unknown cost centres, orphan invoice references and duplicate business-record candidates. These are illustrative ERP vocabularies, not comprehensive SAP validation. Findings can overlap; the quality score is `100 × max(0, 1 − finding_count/cell_count)`, not certification or acceptance. CSV NULLs appear empty and binary values are hexadecimal; SQLite retains type/null fidelity. Qlik-compatible exports remain available. A local Qlik Desktop demonstration is supported as described below; Qlik Cloud, Talend and SAP credentials are not configured.
+
+## Local Qlik Desktop demonstration
+
+Qlik Sense Desktop November 2026 Patch 1 was installed locally with a valid QlikTech publisher signature and matching release checksum. Qlik's official courtesy developer unlock instructions currently specify expiry on February 4, 2027. This is time-limited local access, not a Cloud subscription. See [Qlik's support policy](https://community.qlik.com/t5/Official-Support-Articles/What-to-do-when-the-Qlik-Sense-Desktop-unlock-file-has-expired/ta-p/2545033) and [official downloads](https://github.com/qlik-download/qlik-sense-desktop/releases). Installers and unlock files are not redistributed in this repository.
+
+Start Qlik Sense Desktop and click **Launch** on its welcome screen to activate the local session. On this machine Documents is redirected to OneDrive. The launch configuration's LogPath was corrected to the actual Qlik log directory following [Qlik's troubleshooting instructions](https://community.qlik.com/t5/Official-Support-Articles/Qlik-Sense-Desktop-showing-white-screen-or-blank-screen-on-start/ta-p/1714577). The official unlock is in the installation's `trial` folder. No authentication or license checks were disabled.
+
+The one-click demo always generates a `Qlik Demo` folder for its own completed rehearsal. If Qlik is already listening on loopback port 4848 and its session has been launched, it also creates and saves a new Qlik app using the documented Engine JSON API. An optional Qlik failure does not invalidate PRISM's core demonstration: inspect `qlik-load.log` and `Qlik Demo/qlik-app.json` for the precise state. Each launch preserves earlier apps and runs. The app contains the first processed ERP database and quality comparisons for all datasets in that run; these are synthetic records with simulated steward approvals.
+
+To prepare and load an existing run manually:
+
+```powershell
+.venv\Scripts\python -m pip install -r requirements-qlik.txt
+.venv\Scripts\python -m scripts.prepare_qlik_demo --run PATH_TO_COMPLETED_RUN --output NEW_QLIK_FOLDER
+.venv\Scripts\python -m scripts.load_qlik_demo --folder NEW_QLIK_FOLDER
+```
+
+Preparation checks the processed database hash and first-dataset metrics against its audit before exporting. The loader only connects to localhost, refuses to overwrite an existing package's app, verifies loaded row counts and chart dataset counts, then saves the app URL. If interrupted after app creation, recovery details remain in `qlik-app.json`; inspect that app rather than deleting the recovery record and blindly retrying. The CSV and QVS files can also be imported manually using the supplied README.
+
+The initial 20-dataset app was verified through the actual Qlik engine and visually in the local browser: 81 vendors, 80 materials, 80 invoices, 40 metric rows; the first dataset shows 786 findings before and 125 after. Both comparison charts rendered. This demonstrates local file ingestion and analytics, not live MySQL streaming, Qlik Talend migration or Qlik Cloud integration. Company memory and models remain managed by PRISM and are not copied into Qlik.
 
 ## Offline QLoRA
 
