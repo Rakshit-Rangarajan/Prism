@@ -23,7 +23,7 @@ export function ErpLearningDemo(){
   setBusy(true);setError('');setMessage('');
   try{
    const [dataset,result]=await Promise.all([
-    api<{scenarios:Scenario[]}>('scenarios'),
+    api<{scenarios:Scenario[]}>(`scenarios?batch=${nextBatch}`),
     api<Run>('run',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({apply,batch:nextBatch})})
    ]);
    setBatch(nextBatch);setScenarios(dataset.scenarios);setRun(result);setStep(apply?3:result.reconciliation.lessons.some(x=>x.signature==='amount:legacy_format'&&x.approved)?2:1);
@@ -89,6 +89,6 @@ export function ErpLearningDemo(){
   <section className="panel"><div className="panel-heading"><div><h2>Remembered lessons</h2><p>Approval controls reuse. Observations alone are never automatically applied.</p></div></div>
    <div className="table-wrap"><table><thead><tr><th>ERROR SIGNATURE</th><th>OBSERVATIONS</th><th>STATUS</th><th>REMEDIATION</th></tr></thead><tbody>{summary.lessons.map(l=><tr key={l.signature}><td>{l.signature}</td><td>{l.occurrences}</td><td>{l.approved?'Approved':'Review required'}</td><td>{l.suggestion}</td></tr>)}</tbody></table></div>
   </section></>}
-  {scenarios.length>0&&<section className="panel"><div className="panel-heading"><div><h2>Source records</h2><p>20 generated scenario templates; subsequent batches use distinct synthetic identifiers</p></div></div><div className="table-wrap"><table><thead><tr><th>SCENARIO</th><th>LEGACY INPUT</th></tr></thead><tbody>{scenarios.map(s=><tr key={s.index}><td>{s.name}</td><td><code>{JSON.stringify(s.source)}</code></td></tr>)}</tbody></table></div></section>}
+  {scenarios.length>0&&<section className="panel"><div className="panel-heading"><div><h2>Source records</h2><p>20 generated inputs for the selected batch; no production ERP data</p></div></div><div className="table-wrap"><table><thead><tr><th>SCENARIO</th><th>LEGACY INPUT</th></tr></thead><tbody>{scenarios.map(s=><tr key={s.index}><td>{s.name}</td><td><code>{JSON.stringify(s.source)}</code></td></tr>)}</tbody></table></div></section>}
  </div>;
 }
