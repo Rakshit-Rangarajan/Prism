@@ -1,5 +1,53 @@
 # PRISM local demonstration
 
+## One-click automated rehearsal
+
+Double-click `Run PRISM Demo.cmd` at the repository root. On the prepared PC,
+the Outputs folder also contains a launcher with the same name that saves each
+run under `Outputs/Demo Runs`. It starts/verifies the existing Podman MySQL,
+GPU model and PRISM services, then runs 20 datasets in a fresh isolated rehearsal
+company. It opens a self-contained HTML report containing before/after metrics,
+retrieval provenance and downloadable source/processed packages.
+
+This automated rehearsal **simulates approvals on synthetic data**. It does not
+claim human review, update model weights, promote an adapter or upload to Qlik.
+Interactive PRISM still requires human approval. Each launch retains previous
+results and leaves the active company's memory untouched. The script does not
+install software or download models; use the prepared local environment below.
+
+For a shorter rehearsal or unattended verification:
+
+```powershell
+.\scripts\demo-one-click.ps1 -Datasets 2
+.\scripts\demo-one-click.ps1 -NoBrowser -OutputRoot C:\PRISM-Demo-Runs
+```
+
+The launcher validates source hashes, preserved row counts and quality improvement
+before announcing success. Failures preserve logs in the run folder. The latest
+successful run is recorded in `.local/latest-demo.json`.
+
+## SQL source database samples
+
+Every one-click run includes importable source samples with the same 81 vendors,
+80 materials and 80 invoices. Generate them independently in a new directory:
+
+```powershell
+.venv\Scripts\python -m scripts.export_erp_samples --output C:\PRISM-SQL-Samples
+```
+
+| File | Setup |
+| --- | --- |
+| `prism-erp-source.sqlite` | Open directly or upload to PRISM |
+| `prism-erp-sqlite.sql` | Import into a new empty SQLite database |
+| `prism-erp-mysql.sql` | phpMyAdmin Import or MySQL client; creates `prism_erp_sample` |
+| `prism-erp-sqlserver.sql` | Execute in SSMS; creates `prism_erp_sample` using T-SQL/GO batches |
+
+No sample script drops existing data. Amounts and dates intentionally remain text
+to preserve invalid source values. SQLite and MySQL imports were executed locally.
+The SQL Server script is provided for SSMS but has not been executed against a local
+SQL Server instance. PRISM's live source adapters currently support MySQL and SQLite;
+SSMS import support does not imply a direct SQL Server connector.
+
 PRISM continues the existing React/Vite and FastAPI application. The Render Docker service still automatically deploys commits pushed to `main`. The local GPU model is intentionally not exposed to Render or uploaded to GitHub. No paid API is required.
 
 ## Prepared Windows machine

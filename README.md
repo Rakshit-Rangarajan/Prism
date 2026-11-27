@@ -11,6 +11,12 @@ Render: New > Web Service, connect this repository, runtime **Docker**, branch `
 
 ## Local GPU demo
 
+Double-click **Run PRISM Demo.cmd** for a complete automated synthetic rehearsal:
+start local services, process 20 fresh datasets, demonstrate approved retrieval,
+and open a results report with separate processed databases and SQL source samples.
+Automated rehearsal approvals are explicitly simulated; the interactive application
+retains its human approval gates.
+
 See [local setup and presentation guide](docs/local-demo.md) and [model comparison and measured results](docs/model-selection.md). On the prepared Windows machine, run `scripts/start-local.ps1`; PRISM opens at `http://127.0.0.1:8091`. Use **Local AI & Learning** for the complete MySQL/SQLite → structured recommendation → human correction/approval → company memory → processed database workflow.
 
 Twenty deliberately messy ERP datasets cover vendors, materials and invoices. The verified replay preserves row counts and source hashes while improving quality metrics. Duplicate candidates, invalid dates, orphan references and unknown financial mappings remain for steward review. Immediate learning uses approved retrieval. Offline QLoRA is a separate command that produces per-company adapter candidates and held-out evaluation reports.

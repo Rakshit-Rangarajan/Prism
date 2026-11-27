@@ -19,7 +19,10 @@ def main():
     parser.add_argument('--output', type=Path, required=True)
     parser.add_argument('--mysql', action='store_true')
     parser.add_argument('--model-batches', type=int, default=2)
+    parser.add_argument('--batches', type=int, choices=range(1, 21), default=20)
     args = parser.parse_args()
+    if not 1 <= args.model_batches <= args.batches:
+        parser.error('--model-batches must be between 1 and --batches')
     out = args.output.resolve()
     out.mkdir(parents=True, exist_ok=True)
     os.environ['PRISM_COMPANY_ID'] = 'synthetic-validation'
@@ -40,7 +43,7 @@ def main():
                 raise RuntimeError(f'{response.status_code}: {response.text[:1000]}')
             return response
 
-        for batch in range(1, 21):
+        for batch in range(1, args.batches + 1):
             source = out / f'source-{batch:02d}.sqlite'
             generate(source, batch)
             data = source.read_bytes()
@@ -48,6 +51,8 @@ def main():
             if batch == 1 and args.mysql:
                 data = checked(client.post('/api/demo/database/mysql/snapshot', auth=auth)).content
                 (out / 'mysql-snapshot.sqlite').write_bytes(data)
+                # The source download must be the actual MySQL staging snapshot.
+                source.write_bytes(data)
                 mysql_verified = True
             mode = 'model' if batch <= args.model_batches else 'retrieval'
             plan = checked(client.post('/api/local/recommend?mode=' + mode, content=data, auth=auth)).json()
@@ -56,7 +61,8 @@ def main():
             assert client.post(f"/api/local/plans/{plan['plan_id']}/export", auth=auth).status_code == 409
             checked(client.post(f"/api/local/plans/{plan['plan_id']}/approve", auth=auth, json={
                 'source_sha256': plan['source_sha256'], 'rules': plan['advice']['rules'],
-                'reviewer': 'Synthetic demo steward', 'note': 'Approved synthetic-only migration rules for benchmark replay.',
+                'reviewer': 'Automated synthetic rehearsal',
+                'note': 'Simulated approval for synthetic demonstration only. No human review is claimed.',
                 'confirmation': 'APPROVE TRANSFORMATIONS'}))
             result = checked(client.post(f"/api/local/plans/{plan['plan_id']}/export", auth=auth)).content
             (out / f'processed-{batch:02d}.zip').write_bytes(result)
@@ -69,14 +75,18 @@ def main():
             assert [t['rows'] for t in report['before']['tables']] == [t['rows'] for t in report['after']['tables']]
             with closing(sqlite3.connect(target)) as db:
                 assert db.execute('PRAGMA integrity_check').fetchone()[0] == 'ok'
-            assert source.read_bytes() == data or mysql_verified
+            assert source.read_bytes() == data
             summary = {'batch': batch, 'method': mode, 'mysql': mysql_verified,
                        'before': report['before']['issue_count'], 'after': report['after']['issue_count'],
                        'quality_before': report['before']['quality_score'], 'quality_after': report['after']['quality_score'],
-                       'memory_matches': len(plan['provenance']['retrieved_ids']), 'inference': plan['provenance']['inference']}
+                       'memory_matches': len(plan['provenance']['retrieved_ids']), 'inference': plan['provenance']['inference'],
+                       'source_unchanged': True, 'row_counts_preserved': True, 'integrity_check': 'ok',
+                       'approval': 'simulated synthetic rehearsal'}
             reports.append(summary)
             print(json.dumps(summary), flush=True)
-            (out / 'summary.json').write_text(json.dumps(reports, indent=2))
+            temporary = out / 'summary.tmp'
+            temporary.write_text(json.dumps(reports, indent=2), encoding='utf-8')
+            temporary.replace(out / 'summary.json')
 
 
 if __name__ == '__main__':
