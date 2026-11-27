@@ -19,6 +19,9 @@ export function ErpLearningDemo(){
  const [message,setMessage]=useState('');
  const [step,setStep]=useState(0);
  const [batch,setBatch]=useState(1);
+ const [baseline,setBaseline]=useState<Run|null>(null);
+ const [history,setHistory]=useState<Run[]>([]);
+ const [showSlm,setShowSlm]=useState(false);
  const [question,setQuestion]=useState('How can the approved correction help the next migration batch?');
  const [answer,setAnswer]=useState<{model:string;answer:string;approved_evidence:Lesson[]}|null>(null);
  const [asking,setAsking]=useState(false);
@@ -35,6 +38,8 @@ export function ErpLearningDemo(){
     api<{scenarios:Scenario[]}>(`scenarios?batch=${nextBatch}`),
     api<Run>('run',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({apply,batch:nextBatch})})
    ]);
+   if(!apply&&nextBatch===1&&!result.reconciliation.lessons.some(x=>x.approved))setBaseline(result);
+   if(apply)setHistory(prev=>[...prev.filter(x=>x.batch!==result.batch),result].sort((a,b)=>a.batch-b.batch));
    setBatch(nextBatch);setScenarios(dataset.scenarios);setRun(result);setStep(apply?3:result.reconciliation.lessons.some(x=>x.signature==='amount:legacy_format'&&x.approved)?2:1);
    setMessage(apply?'Local synthetic target updated. Review reconciliation.':'Preview complete; no target records written.');
   }catch(e){setError(String(e))}finally{setBusy(false)}
@@ -55,15 +60,15 @@ export function ErpLearningDemo(){
   try{
    await api('reset',{method:'POST',headers:{'Content-Type':'application/json'},
     body:JSON.stringify({confirmation:'RESET SYNTHETIC DEMO'})});
-   setRun(null);setScenarios([]);setStep(0);setBatch(1);setAnswer(null);setAiError('');
+   setRun(null);setScenarios([]);setStep(0);setBatch(1);setAnswer(null);setAiError('');setBaseline(null);setHistory([]);
    setMessage('Synthetic demo reset. Start with Preview 20 records.');
   }catch(e){setError(String(e))}finally{setBusy(false)}
  }
  function exportReport(){
   if(!run)return;
-  const b=new Blob([JSON.stringify(run,null,2)],{type:'application/json'});
+  const b=new Blob([JSON.stringify({synthetic:true,scope:'Simulated ERP migration; not SAP acceptance',baseline,batches:history,current:run},null,2)],{type:'application/json'});
   const url=URL.createObjectURL(b),a=document.createElement('a');
-  a.href=url;a.download=`prism-synthetic-erp-batch-${run.batch}-reconciliation.json`;a.click();URL.revokeObjectURL(url);
+  a.href=url;a.download=`prism-synthetic-erp-consolidated-reconciliation.json`;a.click();URL.revokeObjectURL(url);
  }
  const summary=run?.reconciliation;
  return <div>
@@ -77,7 +82,7 @@ export function ErpLearningDemo(){
     <button disabled={busy||step!==1||!run?.reconciliation.lessons.some(x=>x.signature==='amount:legacy_format'&&!x.approved)} className="small-button" onClick={approve}><ShieldCheck size={16}/> 2. Approve correction</button>
     <button disabled={busy||step<2} className="small-button" onClick={()=>runStep(true)}><Database size={16}/> 3. Run migration</button>
     <button disabled={busy||step<3||batch>=20} className="small-button" onClick={()=>runStep(true,batch+1)}><RefreshCcw size={16}/> 4. Migrate next batch · reuse memory</button>
-    <button disabled={!run} className="small-button" onClick={exportReport}>5. Download report</button>
+    <button disabled={!run} className="small-button" onClick={exportReport}>5. Download consolidated report</button>
     <button disabled={busy} className="small-button" onClick={resetDemo}>Restart synthetic demo</button>
    </div>
    {busy&&<p role="status"><RefreshCcw size={15}/> Processing synthetic records…</p>}
@@ -85,14 +90,17 @@ export function ErpLearningDemo(){
    {message&&<p role="status">{message}</p>}
   </section>
   <section className="panel" style={{marginTop:16,padding:20}}>
-   <h2>Ask PRISM · Small language model</h2>
+   <button className="small-button" onClick={()=>setShowSlm(v=>!v)}>{showSlm?"Hide optional local SLM":"Optional local SLM · requires configured runtime"}</button>
+   {showSlm&&<><h2>Ask PRISM · Small language model</h2>
    <p>Real inference using approved synthetic migration memory, not simulated responses.</p>
    <label htmlFor="slm-question">Migration question</label>
    <textarea id="slm-question" rows={3} maxLength={500} value={question} onChange={e=>setQuestion(e.target.value)} style={{width:'100%',margin:'10px 0'}}/>
    <button className="small-button" disabled={asking||busy||!question.trim()} onClick={askModel}>{asking?'Generating with local model…':'Ask model'}</button>
    {aiError&&<p role="alert" className="error">{aiError}</p>}
    {answer&&<div style={{marginTop:16}}><small>Model: {answer.model} · Approved evidence: {answer.approved_evidence.length}</small><p style={{whiteSpace:'pre-wrap'}}>{answer.answer}</p>{answer.approved_evidence.map(l=><p key={l.signature}><b>{l.signature}</b> — {l.suggestion}</p>)}</div>}
+   </>}
   </section>
+  {history.length>0&&<section className="panel"><div className="panel-heading"><div><h2>Migration improvement &amp; readiness</h2><p>Actual synthetic run results. Preview and execution are distinct; unresolved errors remain blocked.</p></div></div><div className="table-wrap"><table><thead><tr><th>RUN</th><th>RECORDS</th><th>REJECTED</th><th>APPROVED FIX REUSES</th><th>RECONCILIATION</th></tr></thead><tbody>{[...(baseline?[baseline]:[]),...history].map((r,i)=><tr key={i}><td>{r.mode==='preview'?'Initial preview':`Migration batch ${r.batch}`}</td><td>{r.reconciliation.scenario_count}</td><td>{r.reconciliation.rejected_this_run}</td><td>{Object.values(r.reconciliation.approved_rule_reuse).reduce((a,b)=>a+b,0)}</td><td>{r.reconciliation.reconciliation_passed?'Counts reconciled':'Review required'}</td></tr>)}</tbody></table></div><p style={{padding:16}}>Latest batch: {history[history.length-1].reconciliation.rejected_this_run===0?'No rejected records in synthetic run':'Unresolved records require review before target acceptance'}. This is not live SAP readiness certification.</p></section>}
   {summary&&<><div className="metrics">
    <div className="panel"><small>SCENARIOS</small><h2>{summary.scenario_count}</h2></div>
    <div className="panel"><small>THIS RUN — MIGRATED</small><h2>{summary.migrated_this_run}</h2></div>
