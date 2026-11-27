@@ -5,10 +5,10 @@ Isolated SQLite storage; deliberately not a real ERP connector.
 import os
 from pathlib import Path
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel, Field
 
-from demo.erp_learning_pipeline import Demo, SCENARIOS, sample
+from demo.erp_learning_pipeline import Demo, SCENARIOS
 
 router = APIRouter(prefix="/api/demo/erp", tags=["Synthetic ERP demo"])
 
@@ -33,10 +33,10 @@ class ApprovalRequest(BaseModel):
 
 
 @router.get("/scenarios")
-def scenarios():
-    return {"synthetic": True, "count": len(SCENARIOS),
+def scenarios(batch: int = Query(default=1, ge=1, le=20)):
+    return {"synthetic": True, "count": len(SCENARIOS), "batch": batch,
             "scenarios": [
-                {"index": i + 1, "name": scenario, "source": sample(scenario, i + 1)}
+                {"index": i + 1, "name": scenario, "source": Demo.batch_sample(scenario, i + 1, batch)}
                 for i, scenario in enumerate(SCENARIOS)
             ]}
 
