@@ -1,5 +1,9 @@
 """Bounded synthetic/demo SQLite ingestion; never modifies uploaded source."""
 import sqlite3
+import csv
+import io
+import json
+import zipfile
 import tempfile
 from pathlib import Path
 from fastapi import APIRouter, Request, HTTPException
@@ -89,9 +93,32 @@ async def clean(request: Request):
         path.write_bytes(data)
         try:
             with sqlite3.connect(path) as db:
+                before=inspect_db(db)
                 inspect_db(db,clean=True)
+                after=inspect_db(db)
                 if db.execute("PRAGMA foreign_key_check").fetchone():
                     raise HTTPException(422,"Foreign key violations require review")
+            if request.query_params.get("format") == "qlik":
+                output=io.BytesIO()
+                with zipfile.ZipFile(output,"w",compression=zipfile.ZIP_DEFLATED) as archive:
+                    with sqlite3.connect(path.as_uri()+"?mode=ro",uri=True) as db:
+                        db.execute("PRAGMA trusted_schema=OFF")
+                        manifest=[]
+                        for i,table in enumerate(after,1):
+                            cursor=db.execute("SELECT * FROM "+ident(table["table"]))
+                            filename=f"table_{i:03d}.csv"
+                            stream=io.StringIO(newline="")
+                            writer=csv.writer(stream)
+                            writer.writerow([x[0] for x in cursor.description])
+                            for row in cursor:
+                                writer.writerow([v.hex() if isinstance(v,bytes) else v for v in row])
+                                if stream.tell()>20*1024*1024:
+                                    raise HTTPException(422,"CSV export exceeds demo limit")
+                            archive.writestr(filename,stream.getvalue().encode("utf-8"))
+                            manifest.append({"table":table["table"],"file":filename,"rows":table["rows"]})
+                        archive.writestr("reconciliation.json",json.dumps({"before":before,"after":after,"tables":manifest,"notes":"CSV nulls are empty; binary values are hexadecimal. SQLite copy preserves native types. No live Qlik load performed."},indent=2))
+                        archive.writestr("prism-processed.sqlite",path.read_bytes())
+                return Response(output.getvalue(),media_type="application/zip",headers={"Content-Disposition":"attachment; filename=prism-qlik-package.zip"})
             return Response(path.read_bytes(),media_type="application/octet-stream",headers={"Content-Disposition":"attachment; filename=prism-processed.sqlite"})
         except sqlite3.Error:
             raise HTTPException(422,"Cleaning failed; original source remains unchanged")
