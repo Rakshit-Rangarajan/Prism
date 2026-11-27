@@ -69,8 +69,8 @@ class Demo:
             "SELECT approved FROM lessons WHERE signature=?", (signature,)
         ).fetchone()[0])
 
-    def migrate(self, case, index, apply=False):
-        raw = sample(case, index)
+    def migrate(self, case, index, apply=False, batch=1):
+        raw = self.batch_sample(case, index, batch)
         row = dict(raw)
         errors, reused = [], []
         for key in ("customer_id", "name", "email"):
@@ -124,12 +124,19 @@ class Demo:
         return {"scenario": case, "status": "migrated" if apply else "validated",
                 "record": {k: row[k] for k in FIELDS}, "reused_lessons": reused}
 
-    def run(self, apply=False):
+    @staticmethod
+    def batch_sample(case, index, batch=1):
+        row = sample(case, index)
+        if batch != 1 and isinstance(row.get('customer_id'), str) and row['customer_id'].strip():
+            row['customer_id'] = f'B{batch}-' + row['customer_id'].strip()
+        return row
+
+    def run(self, apply=False, batch=1):
         """Detect duplicates within the source batch, including in dry-run mode."""
         seen = set()
         results = []
         for i, case in enumerate(SCENARIOS):
-            source_id = sample(case, i + 1).get("customer_id")
+            source_id = self.batch_sample(case, i + 1, batch).get("customer_id")
             normalized = source_id.strip() if isinstance(source_id, str) else None
             if normalized and normalized in seen:
                 self.lesson("customer_id:duplicate",
@@ -140,7 +147,7 @@ class Demo:
                 continue
             if normalized:
                 seen.add(normalized)
-            results.append(self.migrate(case, i + 1, apply=apply))
+            results.append(self.migrate(case, i + 1, apply=apply, batch=batch))
         return results
 
     def report(self, results):
