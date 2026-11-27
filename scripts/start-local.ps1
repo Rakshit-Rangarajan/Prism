@@ -29,7 +29,7 @@ if ($container -ne 'true') { podman start prism-mysql | Out-Null }
 if (-not (Test-Path -LiteralPath $settings.modelPath) -or -not (Test-Path -LiteralPath $settings.runtimePath)) { throw 'Model/runtime files are missing; check local settings.' }
 $actualHash = (Get-FileHash -LiteralPath $settings.modelPath -Algorithm SHA256).Hash.ToLowerInvariant()
 if ($actualHash -ne $settings.modelSha256) { throw 'Model hash mismatch. Do not launch with unsynchronized model artifacts.' }
-function Test-Endpoint($url) { try { $r=Invoke-WebRequest $url -TimeoutSec 3; return $r.StatusCode -eq 200 } catch { return $false } }
+function Test-Endpoint($url) { try { $r=Invoke-WebRequest $url -UseBasicParsing -TimeoutSec 3; return $r.StatusCode -eq 200 } catch { return $false } }
 if (-not $AppOnly) {
 if (-not (Test-Endpoint 'http://127.0.0.1:8092/health')) {
     $modelArgs = @('-m', ('"'+$settings.modelPath+'"'),'--host','127.0.0.1','--port','8092','-ngl','99','-c','4096','--parallel','1','--alias','qwen3-4b','--no-webui')
