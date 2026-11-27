@@ -19,6 +19,15 @@ export function ErpLearningDemo(){
  const [message,setMessage]=useState('');
  const [step,setStep]=useState(0);
  const [batch,setBatch]=useState(1);
+ const [question,setQuestion]=useState('How can the approved correction help the next migration batch?');
+ const [answer,setAnswer]=useState<{model:string;answer:string;approved_evidence:Lesson[]}|null>(null);
+ const [asking,setAsking]=useState(false);
+ const [aiError,setAiError]=useState('');
+ async function askModel(){
+  setAsking(true);setAnswer(null);setAiError('');
+  try{setAnswer(await api<{model:string;answer:string;approved_evidence:Lesson[]}>('explain',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({question:question.trim()})}));}
+  catch(e){setAiError(String(e))}finally{setAsking(false)}
+ }
  async function runStep(apply:boolean,nextBatch=batch){
   setBusy(true);setError('');setMessage('');
   try{
@@ -46,7 +55,7 @@ export function ErpLearningDemo(){
   try{
    await api('reset',{method:'POST',headers:{'Content-Type':'application/json'},
     body:JSON.stringify({confirmation:'RESET SYNTHETIC DEMO'})});
-   setRun(null);setScenarios([]);setStep(0);setBatch(1);
+   setRun(null);setScenarios([]);setStep(0);setBatch(1);setAnswer(null);setAiError('');
    setMessage('Synthetic demo reset. Start with Preview 20 records.');
   }catch(e){setError(String(e))}finally{setBusy(false)}
  }
@@ -74,6 +83,15 @@ export function ErpLearningDemo(){
    {busy&&<p role="status"><RefreshCcw size={15}/> Processing synthetic records…</p>}
    {error&&<p role="alert" className="error">{error}</p>}
    {message&&<p role="status">{message}</p>}
+  </section>
+  <section className="panel" style={{marginTop:16,padding:20}}>
+   <h2>Ask PRISM · Small language model</h2>
+   <p>Real inference using approved synthetic migration memory, not simulated responses.</p>
+   <label htmlFor="slm-question">Migration question</label>
+   <textarea id="slm-question" rows={3} maxLength={500} value={question} onChange={e=>setQuestion(e.target.value)} style={{width:'100%',margin:'10px 0'}}/>
+   <button className="small-button" disabled={asking||busy||!question.trim()} onClick={askModel}>{asking?'Generating with local model…':'Ask model'}</button>
+   {aiError&&<p role="alert" className="error">{aiError}</p>}
+   {answer&&<div style={{marginTop:16}}><small>Model: {answer.model} · Approved evidence: {answer.approved_evidence.length}</small><p style={{whiteSpace:'pre-wrap'}}>{answer.answer}</p>{answer.approved_evidence.map(l=><p key={l.signature}><b>{l.signature}</b> — {l.suggestion}</p>)}</div>}
   </section>
   {summary&&<><div className="metrics">
    <div className="panel"><small>SCENARIOS</small><h2>{summary.scenario_count}</h2></div>
