@@ -1,4 +1,5 @@
 import React, {useEffect,useMemo,useState} from 'react';
+import {DatabaseDemo} from './DatabaseDemo';
 import {MigrationStudio} from './MigrationStudio';
 import {ErpLearningDemo} from './ErpLearningDemo';
 import {DataQualityLab} from './DataQualityLab';
@@ -40,11 +41,11 @@ export default function App(){
     {error&&<div className="error" role="alert">{error}<button onClick={()=>setError('')}>Dismiss</button></div>}
     {section==='Overview'&&<section className="panel" style={{marginBottom:20,padding:24}}>
       <div className="eyebrow">START HERE · GUIDED DEMO</div>
-      <h2 style={{marginTop:10}}>See PRISM fix a migration error and remember the correction.</h2>
-      <p style={{marginTop:10,marginBottom:18}}>No database setup needed for this synthetic demonstration. Start with 20 example records, review the failures, approve a safe correction, and run it again. The other sections are advanced tools.</p>
-      <button className="small-button" onClick={()=>select('ERP Learning Demo')} style={{padding:'13px 20px',fontWeight:700}}>Start guided migration <ArrowRight size={17}/></button>
+      <h2 style={{marginTop:10}}>Process a real database with PRISM.</h2>
+      <p style={{marginTop:10,marginBottom:18}}>Load the example SQLite database or upload your own, inspect its quality, approve cleaning, and download a separate processed database. ERP Learning Demo separately shows remembered corrections.</p>
+      <button className="small-button" onClick={()=>select('Migration Studio')} style={{padding:'13px 20px',fontWeight:700}}>Open database workbench <ArrowRight size={17}/></button>
     </section>}
-    {section==='Migration Studio'&&<MigrationStudio/>}
+    {section==='Migration Studio'&&<><DatabaseDemo/><MigrationStudio/></>}
     {section==='ERP Learning Demo'&&<ErpLearningDemo/>}
     {section==='Data Quality Lab'&&<DataQualityLab/>}
     {section==='Overview'&&<><div className="metrics">
