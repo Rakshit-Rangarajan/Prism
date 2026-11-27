@@ -41,7 +41,7 @@ def snapshot():
         with closing(pymysql.connect(host=os.environ["PRISM_MYSQL_HOST"], port=int(os.getenv("PRISM_MYSQL_PORT","3306")), user=os.environ["PRISM_MYSQL_USER"], password=os.environ["PRISM_MYSQL_PASSWORD"], database=schema, connect_timeout=5, read_timeout=15, write_timeout=10, charset="utf8mb4", ssl_ca=ca, ssl_verify_cert=bool(ca), ssl_verify_identity=bool(ca))) as source:
             with source.cursor() as cur, tempfile.TemporaryDirectory() as folder:
                 cur.execute("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ")
-                cur.execute("START TRANSACTION READ ONLY WITH CONSISTENT SNAPSHOT")
+                cur.execute("START TRANSACTION WITH CONSISTENT SNAPSHOT, READ ONLY")
                 cur.execute("SELECT TABLE_NAME, ENGINE FROM information_schema.TABLES WHERE TABLE_SCHEMA=%s AND TABLE_TYPE='BASE TABLE' ORDER BY TABLE_NAME LIMIT 101",(schema,))
                 tables=cur.fetchall()
                 if len(tables)>100 or any(engine!="InnoDB" for _,engine in tables):
@@ -60,7 +60,17 @@ def snapshot():
                         for name,typ,key in columns:
                             kind = "INTEGER" if typ in ("tinyint","smallint","mediumint","int") else "REAL" if typ in ("float","double") else "BLOB" if typ in ("binary","varbinary","blob","tinyblob","mediumblob","longblob","bit") else "TEXT"
                             defs.append(ident(name)+" "+kind)
+                        cur.execute("SELECT COLUMN_NAME FROM information_schema.KEY_COLUMN_USAGE WHERE TABLE_SCHEMA=%s AND TABLE_NAME=%s AND CONSTRAINT_NAME='PRIMARY' ORDER BY ORDINAL_POSITION",(schema,table))
+                        primary=[ident(r[0]) for r in cur.fetchall()]
+                        if primary:
+                            defs.append("PRIMARY KEY ("+",".join(primary)+")")
                         target.execute("CREATE TABLE "+ident(table)+" ("+",".join(defs)+")")
+                        # Protect indexed source columns against automatic normalization.
+                        cur.execute("SELECT DISTINCT COLUMN_NAME FROM information_schema.STATISTICS WHERE TABLE_SCHEMA=%s AND TABLE_NAME=%s AND COLUMN_NAME IS NOT NULL",(schema,table))
+                        for idx,(keycol,) in enumerate(cur.fetchall()):
+                            import hashlib
+                            index_name="prism_key_"+hashlib.sha256((table+"\u0000"+str(idx)).encode()).hexdigest()
+                            target.execute("CREATE INDEX "+ident(index_name)+" ON "+ident(table)+" ("+ident(keycol)+")")
                         names=",".join(mysql_ident(x[0]) for x in columns)
                         cur.execute("SELECT "+names+" FROM "+mysql_ident(table)+" LIMIT 10001")
                         rows=cur.fetchall()
