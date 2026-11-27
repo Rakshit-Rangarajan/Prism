@@ -52,10 +52,17 @@ def inspect_db(db, clean=False):
             referenced = any(any(r[2].casefold()==name.casefold() for r in db.execute(f"PRAGMA foreign_key_list({ident(other)})")) for other,_ in tables)
             triggers = db.execute("SELECT 1 FROM sqlite_schema WHERE type='trigger' AND tbl_name=?", (name,)).fetchone()
             eligible = not (pk or indexed or fk or referenced or triggers or 'CHECK' in sql.upper() or any(x[6] for x in cols))
-            issues.append({"column":col,"type":typ,"nulls":nulls,"blank_text":blanks,"whitespace":whitespace,"trim_eligible":bool(eligible)})
+            duplicates = db.execute(f"SELECT coalesce(sum(n-1),0) FROM (SELECT count(*) n FROM {q} WHERE {k} IS NOT NULL GROUP BY {k} HAVING count(*)>1)").fetchone()[0]
+            issues.append({"repeated_values":duplicates,"primary_key":bool(pk),"column":col,"type":typ,"nulls":nulls,"blank_text":blanks,"whitespace":whitespace,"trim_eligible":bool(eligible)})
             if clean and eligible and whitespace:
                 db.execute(f"UPDATE {q} SET {k}=trim({k}) WHERE typeof({k})='text' AND {k} COLLATE BINARY != trim({k}) COLLATE BINARY AND trim({k})!=''")
-        report.append({"table":name,"rows":count,"columns":issues})
+        relationships = [{"target_table":r[2],"source_column":r[3],"target_column":r[4]} for r in db.execute(f"PRAGMA foreign_key_list({q})")]
+        nonkeys = [ident(x[1]) for x in cols if not x[5] and not x[6]]
+        duplicate_rows = 0
+        if nonkeys:
+            grouping = ",".join(nonkeys)
+            duplicate_rows = db.execute(f"SELECT coalesce(sum(n-1),0) FROM (SELECT count(*) n FROM {q} GROUP BY {grouping} HAVING count(*)>1)").fetchone()[0]
+        report.append({"table":name,"rows":count,"columns":issues,"relationships":relationships,"duplicate_nonkey_rows":duplicate_rows})
     return report
 
 @router.get("/sample")
@@ -79,7 +86,7 @@ async def profile(request: Request):
         path.write_bytes(data)
         try:
             with sqlite3.connect(path.as_uri()+"?mode=ro",uri=True) as db:
-                return {"tables":inspect_db(db),"rule":"Trim surrounding spaces in eligible non-key text columns; retain missing/blank values for review."}
+                return {"tables":inspect_db(db),"rule":"Trim surrounding spaces in eligible non-key text columns; retain missing/blank values and duplicate candidates for human review. Repeated values are not necessarily errors."}
         except sqlite3.Error:
             raise HTTPException(422,"Invalid or unsupported SQLite database")
 
