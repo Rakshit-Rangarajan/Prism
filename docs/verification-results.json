@@ -1,0 +1,283 @@
+{
+  "verified_date": "2026-11-27",
+  "hardware": {
+    "os": "Windows 11 Pro x64 10.0.26300",
+    "ram_gb": 32,
+    "gpu": "RTX 3060",
+    "vram_mib": 12288,
+    "driver": "610.88",
+    "python": "3.12.10",
+    "node": "24.16.0",
+    "podman": "6.1.4",
+    "torch": "2.11.0+cu128"
+  },
+  "tests": {
+    "backend_total": 126,
+    "backend_skipped": 1,
+    "legacy_demo_passed": 11,
+    "frontend_passed": 6,
+    "typescript_and_vite_build": "passed"
+  },
+  "pipeline": [
+    {
+      "batch": 1,
+      "method": "model",
+      "mysql": true,
+      "before": 786,
+      "after": 125,
+      "quality_before": 42.46,
+      "quality_after": 90.85,
+      "memory_matches": 0,
+      "inference": {
+        "model": "qwen3-4b",
+        "adapter": null,
+        "seconds": 11.049,
+        "usage": {
+          "completion_tokens": 790,
+          "prompt_tokens": 1632,
+          "total_tokens": 2422,
+          "prompt_tokens_details": {
+            "cached_tokens": 0
+          }
+        }
+      }
+    },
+    {
+      "batch": 2,
+      "method": "model",
+      "mysql": false,
+      "before": 788,
+      "after": 121,
+      "quality_before": 42.31,
+      "quality_after": 91.14,
+      "memory_matches": 12,
+      "inference": {
+        "model": "qwen3-4b",
+        "adapter": null,
+        "seconds": 10.432,
+        "usage": {
+          "completion_tokens": 739,
+          "prompt_tokens": 2042,
+          "total_tokens": 2781,
+          "prompt_tokens_details": {
+            "cached_tokens": 248
+          }
+        }
+      }
+    },
+    {
+      "batch": 3,
+      "method": "retrieval",
+      "mysql": false,
+      "before": 780,
+      "after": 141,
+      "quality_before": 42.9,
+      "quality_after": 89.68,
+      "memory_matches": 12,
+      "inference": null
+    },
+    {
+      "batch": 4,
+      "method": "retrieval",
+      "mysql": false,
+      "before": 816,
+      "after": 129,
+      "quality_before": 40.26,
+      "quality_after": 90.56,
+      "memory_matches": 12,
+      "inference": null
+    },
+    {
+      "batch": 5,
+      "method": "retrieval",
+      "mysql": false,
+      "before": 787,
+      "after": 121,
+      "quality_before": 42.39,
+      "quality_after": 91.14,
+      "memory_matches": 12,
+      "inference": null
+    },
+    {
+      "batch": 6,
+      "method": "retrieval",
+      "mysql": false,
+      "before": 789,
+      "after": 146,
+      "quality_before": 42.24,
+      "quality_after": 89.31,
+      "memory_matches": 12,
+      "inference": null
+    },
+    {
+      "batch": 7,
+      "method": "retrieval",
+      "mysql": false,
+      "before": 796,
+      "after": 140,
+      "quality_before": 41.73,
+      "quality_after": 89.75,
+      "memory_matches": 12,
+      "inference": null
+    },
+    {
+      "batch": 8,
+      "method": "retrieval",
+      "mysql": false,
+      "before": 806,
+      "after": 134,
+      "quality_before": 41.0,
+      "quality_after": 90.19,
+      "memory_matches": 12,
+      "inference": null
+    },
+    {
+      "batch": 9,
+      "method": "retrieval",
+      "mysql": false,
+      "before": 796,
+      "after": 137,
+      "quality_before": 41.73,
+      "quality_after": 89.97,
+      "memory_matches": 12,
+      "inference": null
+    },
+    {
+      "batch": 10,
+      "method": "retrieval",
+      "mysql": false,
+      "before": 794,
+      "after": 123,
+      "quality_before": 41.87,
+      "quality_after": 91.0,
+      "memory_matches": 12,
+      "inference": null
+    },
+    {
+      "batch": 11,
+      "method": "retrieval",
+      "mysql": false,
+      "before": 800,
+      "after": 134,
+      "quality_before": 41.43,
+      "quality_after": 90.19,
+      "memory_matches": 12,
+      "inference": null
+    },
+    {
+      "batch": 12,
+      "method": "retrieval",
+      "mysql": false,
+      "before": 791,
+      "after": 132,
+      "quality_before": 42.09,
+      "quality_after": 90.34,
+      "memory_matches": 12,
+      "inference": null
+    },
+    {
+      "batch": 13,
+      "method": "retrieval",
+      "mysql": false,
+      "before": 789,
+      "after": 120,
+      "quality_before": 42.24,
+      "quality_after": 91.22,
+      "memory_matches": 12,
+      "inference": null
+    },
+    {
+      "batch": 14,
+      "method": "retrieval",
+      "mysql": false,
+      "before": 816,
+      "after": 132,
+      "quality_before": 40.26,
+      "quality_after": 90.34,
+      "memory_matches": 12,
+      "inference": null
+    },
+    {
+      "batch": 15,
+      "method": "retrieval",
+      "mysql": false,
+      "before": 796,
+      "after": 128,
+      "quality_before": 41.73,
+      "quality_after": 90.63,
+      "memory_matches": 12,
+      "inference": null
+    },
+    {
+      "batch": 16,
+      "method": "retrieval",
+      "mysql": false,
+      "before": 802,
+      "after": 127,
+      "quality_before": 41.29,
+      "quality_after": 90.7,
+      "memory_matches": 12,
+      "inference": null
+    },
+    {
+      "batch": 17,
+      "method": "retrieval",
+      "mysql": false,
+      "before": 786,
+      "after": 140,
+      "quality_before": 42.46,
+      "quality_after": 89.75,
+      "memory_matches": 12,
+      "inference": null
+    },
+    {
+      "batch": 18,
+      "method": "retrieval",
+      "mysql": false,
+      "before": 805,
+      "after": 133,
+      "quality_before": 41.07,
+      "quality_after": 90.26,
+      "memory_matches": 12,
+      "inference": null
+    },
+    {
+      "batch": 19,
+      "method": "retrieval",
+      "mysql": false,
+      "before": 810,
+      "after": 138,
+      "quality_before": 40.7,
+      "quality_after": 89.9,
+      "memory_matches": 12,
+      "inference": null
+    },
+    {
+      "batch": 20,
+      "method": "retrieval",
+      "mysql": false,
+      "before": 808,
+      "after": 143,
+      "quality_before": 40.85,
+      "quality_after": 89.53,
+      "memory_matches": 12,
+      "inference": null
+    }
+  ],
+  "training": {
+    "steps": 20,
+    "seconds": 94.55828819994349,
+    "train_sources": 16,
+    "held_out_sources": 4,
+    "base_eval_loss": 1.970293790102005,
+    "adapter_eval_loss": 0.8220898658037186,
+    "peak_cuda_allocated_mb": 7376.771484375,
+    "promoted": false,
+    "evaluation_limit": "Held-out token loss on synthetic data; requires structured-output and semantic regression evaluation before promotion."
+  },
+  "pending": [
+    "Manual browser visual validation: computer-control URL detection blocked desktop verification.",
+    "Adapter conversion, structured-output regression testing and promotion; validated base model remains active.",
+    "Live Qlik and SAP credentials/integration."
+  ]
+}

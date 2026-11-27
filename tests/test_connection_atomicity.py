@@ -2,6 +2,7 @@
 import sqlite3
 import tempfile
 import unittest
+from contextlib import closing
 from pathlib import Path
 from unittest.mock import patch
 
@@ -20,7 +21,7 @@ class ConnectionAtomicityTests(unittest.TestCase):
             conn.execute("CREATE TABLE governance (id INTEGER PRIMARY KEY, decision TEXT)")
 
     def rows(self):
-        with sqlite3.connect(self.database) as conn:
+        with closing(sqlite3.connect(self.database)) as conn:
             return conn.execute("SELECT decision FROM governance ORDER BY id").fetchall()
 
     def test_success_commits(self):

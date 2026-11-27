@@ -1,0 +1,91 @@
+# PRISM local demonstration
+
+PRISM continues the existing React/Vite and FastAPI application. The Render Docker service still automatically deploys commits pushed to `main`. The local GPU model is intentionally not exposed to Render or uploaded to GitHub. No paid API is required.
+
+## Prepared Windows machine
+
+Verified 27 November 2026: Windows 11 Pro x64 (10.0.26300), 32 GB RAM, NVIDIA GeForce RTX 3060 12 GB, driver 610.88, Python 3.12.10, Node 24.16, Podman 6.1.4/WSL. A portable llama.cpp CUDA 12.4 runtime is used because it requires no system-wide installation. PyTorch 2.11.0+cu128 detects the GPU.
+
+From the repository in PowerShell:
+
+```powershell
+.\scripts\start-local.ps1
+```
+
+Open `http://127.0.0.1:8091`. Username is `prism`; the generated local password is in `.local/settings.json`. This credential is separate from the hosted demo password. Startup verifies the quantized model hash, all 20 source dataset hashes, model availability, the company binding, and the actual read-only MySQL connection. It starts existing Podman/MySQL and launches the model and app in hidden background processes. It does not overwrite source databases or approved memory.
+
+```powershell
+.venv\Scripts\python -m scripts.check_local_demo
+.\scripts\stop-local.ps1
+```
+
+Stopping preserves MySQL and all data. Processes are stopped only after matching saved PIDs and expected command lines. If another process owns the selected ports, resolve that conflict before launching. Do not run training and inference together on this GPU: stop the local processes first, train, then launch the demo again.
+
+## Five-minute presentation
+
+1. Open **Local AI & Learning**. Confirm company `prism-demo`, `qwen3-4b`, **Local inference online**, and base weights.
+2. Click **Connect local MySQL**, or load dataset 1. MySQL contains the same batch-1 synthetic vendors, materials and invoices. Its `prism_reader` account has SELECT privileges only. The snapshot is a SQLite staging representation, not a faithful MySQL schema clone.
+3. Click **Ask local SLM**. The model interprets quality findings, classifies ERP domains, proposes advisory field mappings, selects finite transformation candidates, and explains unresolved migration risks. No model-authored SQL runs.
+4. Review the editable structured plan. Correct or remove a rule if needed. Enter the reviewer/rationale, check the approval box, then click **Approve & store correction**.
+5. Generate the processed package. It contains a separate SQLite database, UTF-8 CSV files, a manifest, before/after metrics, approved rule audit and source/target SHA-256 hashes. Source rows are never deleted or merged.
+6. Load dataset 2 and click **Retrieve approved resolutions**. PRISM retrieves only approved corrections from the current company. It still requires a fresh approval for the new source digest. This is retrieval-based learning, not a weight update.
+7. Alternatively ask the local model on dataset 2: approved resolutions are included as evidence and explicit candidates. Compare its provenance with the first request.
+
+The generic database workbench remains under **Migration Studio**, including SQLite uploads, MySQL snapshots, opt-in normalization, approval gates and Qlik-compatible exports. The earlier ERP learning scenario demo is also retained.
+
+## Data and model locations
+
+| Location | Purpose |
+| --- | --- |
+| `.local/settings.json` | Private launcher paths, generated local login, expected model hash, optional promoted GGUF adapter |
+| `.local/artifacts.json` | Canonical model identity and 20 dataset hashes |
+| `.local/datasets/erp-01.sqlite` … `erp-20.sqlite` | Reproducible messy ERP source datasets |
+| `.local/companies/<company>/config.json` | Operator-controlled base model, inference URL, adapter label, business rules and migration knowledge |
+| `.local/companies/<company>/memory.sqlite3` | Source-bound plans, approved corrections, reviewer notes and mapping/execution history |
+| `<company>/training/<run>/` | Approved training examples, source-separated held-out data and evaluation report |
+| `<company>/adapters/<run>/` | Actual PEFT adapter and evaluation metadata; remains a candidate until promoted |
+| `.local/base-model/` | Local Hugging Face base weights/tokenizer for offline training |
+| `../models/` and `../runtime/` on this prepared machine | Quantized inference model and portable CUDA llama.cpp runtime; absolute paths are recorded in private settings |
+
+`prepare_local_demo` creates missing canonical datasets and checks existing ones for drift, without replacing data or memory. It refuses modified datasets. Source datasets, generated targets and model artifacts remain local and are excluded from Git and Docker build context. Approved plans expire after 24 hours; approved corrections and history persist.
+
+Company identity is bound by `PRISM_COMPANY_ID` and `PRISM_COMPANY_ROOT` on the server. A browser cannot select a tenant. Separate company directories isolate configurations, memory, examples, adapters and histories. Run separate server instances/ports for separate companies. Existing demo Basic Auth is not multi-tenant production SSO. Render's filesystem remains ephemeral, so local approved memory is the demonstration's durable record.
+
+## Reproduce on another machine
+
+Create `.venv`, install `requirements.txt`, then `npm ci --prefix frontend` and `npm run build --prefix frontend`. Download the selected GGUF and a compatible official CUDA llama.cpp release, create private `.local/settings.json` matching the launcher fields, and run `python -m scripts.prepare_local_demo`. Start a loopback-only MySQL 8.4 container named `prism-mysql`, with port `127.0.0.1:3307:3306`, database `prism_erp`, user `prism_reader`, and private credentials in `.local/mysql.env`.
+
+Run `python -m scripts.seed_mysql_demo` with `PRISM_MYSQL_ROOT_PASSWORD` and `PRISM_MYSQL_PORT=3307` in the process environment. The seeder refuses nonempty databases and is restricted to the synthetic `prism_erp` schema. It seeds 81 vendors, 80 materials and 80 invoices, then reduces the reader to SELECT-only access. Local setup is opt-in; the application never automatically downloads models or installs system software.
+
+## Rules and validation
+
+Executable operations are `trim`, nullable `blank_to_null`, code `uppercase`, email-domain normalization, explicit US decimal parsing and bounded value crosswalks. The initial synthetic UOM crosswalk maps pieces → EA, kilograms → KG and meters → M. Unknown codes are preserved. Protected keys, indexed or constrained fields, trigger-bearing tables, generated columns and foreign-key tables follow the existing conservative protection policy.
+
+Execution stages are deterministic: trim, blank-to-NULL, value crosswalks, uppercase, decimal parsing, then email-domain normalization. Crosswalks run before uppercasing so source spellings remain matchable regardless of model/retrieval rule ordering. The export audit records the actual execution order.
+
+ERP validation reports missing values, spaces, allowed country/currency/UOM vocabularies, invalid/negative amounts, invalid ISO dates, malformed emails, unknown cost centres, orphan invoice references and duplicate business-record candidates. These are illustrative ERP vocabularies, not comprehensive SAP validation. Findings can overlap; the quality score is `100 × max(0, 1 − finding_count/cell_count)`, not certification or acceptance. CSV NULLs appear empty and binary values are hexadecimal; SQLite retains type/null fidelity. Qlik-compatible exports remain available; live Qlik, SAP and enterprise credentials are not configured.
+
+## Offline QLoRA
+
+Install CUDA PyTorch compatible with the driver, then `requirements-training.txt`. Download `Qwen/Qwen3-4B-Instruct-2507` into a local directory before disconnecting. The training command sets Hugging Face and Transformers offline mode and uses `local_files_only=True`.
+
+```powershell
+.\scripts\stop-local.ps1
+.venv\Scripts\python -m scripts.train_company_adapter --base-model .local/base-model --company-root .local/validation-final/companies --company synthetic-validation --steps 20 --max-length 3072
+.\scripts\start-local.ps1
+```
+
+Training uses only approved plans, separates examples by source database digest, masks prompt tokens from labels, and saves a new per-company LoRA adapter plus base/adapted held-out loss. No adapter is automatically promoted. The active demonstration continues using the validated base model plus approved retrieval. A GGUF-converted adapter can be selected using the launcher's `adapterPath` and `adapterSha256` after separate structured-output and migration regression evaluation; update company configuration only to describe what is actually loaded. PEFT artifacts cannot be passed directly to llama.cpp.
+
+The completed synthetic validation run used 16 training databases and four held-out databases, 20 QLoRA steps, rank 8 on query/value projections, NF4 quantization and microbatch size 1. It trained 2,949,120 parameters. Token-loss improvement is evidence that training ran, not proof of general migration-risk improvement or SAP correctness. Near-duplicate synthetic schemas also limit the strength of this evaluation.
+
+## Verification commands
+
+```powershell
+.venv\Scripts\python -m unittest discover -s tests -p 'test_*.py' -q
+.venv\Scripts\python -m unittest discover -s demo -p 'test_*.py' -q
+npm run build --prefix frontend
+.venv\Scripts\python -m scripts.demo_local_pipeline --mysql --output .local/new-validation --model-batches 2
+```
+
+The end-to-end command is explicitly a synthetic steward demonstration: it approves synthetic model recommendations, verifies export is blocked before approval, processes 20 datasets, checks source hashes/row counts/integrity, and records real model timing separately from retrieval. Use a fresh output directory. Desktop browser verification could not be completed in this session because the computer-control URL detector stopped the browser action; API and build verification do not replace a manual visual check.

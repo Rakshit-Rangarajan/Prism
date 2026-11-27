@@ -121,3 +121,6 @@ app.include_router(database_demo_router, dependencies=[Depends(require_user)])
 
 from .mysql_source import router as mysql_source_router
 app.include_router(mysql_source_router, dependencies=[Depends(require_user)])
+
+from .company_learning import router as company_learning_router
+app.include_router(company_learning_router, dependencies=[Depends(require_user)])

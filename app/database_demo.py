@@ -5,12 +5,21 @@ import io
 import json
 import zipfile
 import tempfile
+from contextlib import contextmanager, closing
 from pathlib import Path
 from fastapi import APIRouter, Request, HTTPException
 from fastapi.responses import Response
 
 router = APIRouter(prefix="/api/demo/database")
 LIMIT = 10 * 1024 * 1024
+
+
+@contextmanager
+def sqlite_connection(*args, **kwargs):
+    """Commit/rollback and always close, including on Windows file cleanup."""
+    with closing(sqlite3.connect(*args, **kwargs)) as db:
+        with db:
+            yield db
 
 def ident(name):
     return '"' + name.replace('"', '""') + '"'
@@ -75,7 +84,7 @@ def inspect_db(db, clean=False, blank_to_null=False, uppercase_codes=False):
 def sample():
     with tempfile.TemporaryDirectory() as folder:
         path=Path(folder)/"sample.sqlite"
-        with sqlite3.connect(path) as db:
+        with sqlite_connection(path) as db:
             db.executescript("""
             CREATE TABLE customers(id INTEGER PRIMARY KEY, name TEXT, email TEXT, country TEXT);
             INSERT INTO customers VALUES(1,' Alice ',' alice@example.test ',' UK '),(2,'Bob',NULL,'India'),(3,'Bob','bob@example.test','');
@@ -91,7 +100,7 @@ async def profile(request: Request):
         path=Path(folder)/"source.sqlite"
         path.write_bytes(data)
         try:
-            with sqlite3.connect(path.as_uri()+"?mode=ro",uri=True) as db:
+            with sqlite_connection(path.as_uri()+"?mode=ro",uri=True) as db:
                 return {"tables":inspect_db(db),"rule":"Trim surrounding spaces in eligible non-key text columns; retain missing/blank values and duplicate candidates for human review. Repeated values are not necessarily errors."}
         except sqlite3.Error:
             raise HTTPException(422,"Invalid or unsupported SQLite database")
@@ -105,7 +114,7 @@ async def clean(request: Request):
         path=Path(folder)/"processed.sqlite"
         path.write_bytes(data)
         try:
-            with sqlite3.connect(path) as db:
+            with sqlite_connection(path) as db:
                 before=inspect_db(db)
                 blank_to_null=request.headers.get("x-prism-blank-to-null")=="APPROVED"
                 uppercase_codes=request.headers.get("x-prism-uppercase-codes")=="APPROVED"
@@ -116,7 +125,7 @@ async def clean(request: Request):
             if request.query_params.get("format") == "qlik":
                 output=io.BytesIO()
                 with zipfile.ZipFile(output,"w",compression=zipfile.ZIP_DEFLATED) as archive:
-                    with sqlite3.connect(path.as_uri()+"?mode=ro",uri=True) as db:
+                    with sqlite_connection(path.as_uri()+"?mode=ro",uri=True) as db:
                         db.execute("PRAGMA trusted_schema=OFF")
                         manifest=[]
                         for i,table in enumerate(after,1):

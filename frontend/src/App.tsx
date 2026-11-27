@@ -3,17 +3,19 @@ import {DatabaseDemo} from './DatabaseDemo';
 import {MigrationStudio} from './MigrationStudio';
 import {ErpLearningDemo} from './ErpLearningDemo';
 import {DataQualityLab} from './DataQualityLab';
+import {LocalLearning} from './LocalLearning';
+import {PrismBrand} from './PrismBrand';
 import {Activity,AlertTriangle,ArrowRight,BookOpen,CheckCircle2,ChevronRight,Database,Download,FileCheck2,LayoutDashboard,RefreshCcw,Search,ShieldCheck,Network,XCircle,Menu,X} from 'lucide-react';
 
 type Exception={id:number;wave:string;domain:string;object:string;error:string;severity:string;state:string;owner:string;note:string|null};
 type Knowledge={id:number;domain:string;title:string;resolution:string;evidence:string;approved:number;version:number};
 type Readiness={domain:string;total:number;open:number;blockers:number};
 type Recommendation={exception:Exception;references:Knowledge[]};
-const sections=['Overview','ERP Learning Demo','Migration Studio','Data Quality Lab','Exceptions','Migration Memory','SAP Readiness','Critical Path','Evidence'] as const;
+const sections=['Overview','Local AI & Learning','ERP Learning Demo','Migration Studio','Data Quality Lab','Exceptions','Migration Memory','SAP Readiness','Critical Path','Evidence'] as const;
 type Section=typeof sections[number];
 async function get<T>(endpoint:string,options?:RequestInit):Promise<T>{const r=await fetch('/api/'+endpoint,options);if(!r.ok){const e=await r.text();throw Error(e.slice(0,220)||('Request failed '+r.status));}return r.json()}
 function Pill({children,tone='normal'}:{children:React.ReactNode;tone?:string}){return <span className={'pill '+tone}>{children}</span>}
-const navIcons=[LayoutDashboard,RefreshCcw,Network,Database,AlertTriangle,BookOpen,ShieldCheck,Network,FileCheck2];
+const navIcons=[LayoutDashboard,BookOpen,RefreshCcw,Network,Database,AlertTriangle,BookOpen,ShieldCheck,Network,FileCheck2];
 export default function App(){
  const [section,setSection]=useState<Section>('Overview');const [items,setItems]=useState<Exception[]>([]);const [knowledge,setKnowledge]=useState<Knowledge[]>([]);
  const [readiness,setReadiness]=useState<Readiness[]>([]);const [selected,setSelected]=useState<number|null>(null);const [recommendation,setRecommendation]=useState<Recommendation|null>(null);
@@ -29,7 +31,7 @@ export default function App(){
  const select=(s:Section)=>{setSection(s);setMobile(false)};
  return <div className="app">
   <aside className={'sidebar '+(mobile?'show':'')}>
-   <div className="brand"><div className="brand-icon"><Activity size={23}/></div><div><strong>PRISM<span>.</span></strong><small>MIGRATION INTELLIGENCE</small></div><button className="mobile-close" onClick={()=>setMobile(false)} aria-label="Close menu"><X size={20}/></button></div>
+   <div className="brand"><PrismBrand/><button className="mobile-close" onClick={()=>setMobile(false)} aria-label="Close menu"><X size={20}/></button></div>
    <div className="side-label">WORKSPACE</div><nav>{sections.map((s,i)=>{const Icon=navIcons[i];return <button key={s} className={'nav-item '+(section===s?'active':'')} onClick={()=>select(s)}><Icon size={18}/><span>{s}</span>{s==='Exceptions'&&open>0&&<b className="nav-count">{open}</b>}</button>})}</nav>
    <div className="side-bottom"><div className="data-line"><span className="green-dot"/> SIMULATION ONLINE</div><div className="side-note">Source <ArrowRight size={13}/> Destination</div><p>Source-agnostic migration intelligence<br/>Synthetic demo · Local CSV workbench</p></div>
   </aside>
@@ -37,7 +39,7 @@ export default function App(){
   <div className="workspace">
    <header className="topbar"><button className="mobile-menu" onClick={()=>setMobile(true)}><Menu size={21}/></button><span>Operations <ChevronRight size={15}/> <b>{section}</b></span><div className="topbar-right"><Pill tone="live"><span className="green-dot"/> DEMO MODE</Pill><button className="icon-button" title="Refresh data" onClick={load}><RefreshCcw size={17}/></button></div></header>
    <main>
-    <div className="page-heading"><div><div className="eyebrow">PREDICTIVE RISK INTELLIGENCE</div><h1>{section==='Overview'?'Migration Command Centre':section}</h1><p>{section==='Overview'?'Intelligence and decision support across migration waves.':section==='Migration Studio'?'Configure source systems, target formats, conversion strategy and private AI.':section==='ERP Learning Demo'?'Run 20 synthetic ERP cases, review errors, approve fixes and replay migration.':section==='Data Quality Lab'?'Profile, clean and validate CSV samples in your browser.':section==='Exceptions'?'Investigate, classify, and route synthetic migration exceptions.':section==='Migration Memory'?'Evidence-backed, approved remediation knowledge.':section==='SAP Readiness'?'Preliminary exception-based readiness; not SAP acceptance.':section==='Critical Path'?'Prioritise simulated blockers threatening release readiness.':'Export traceable synthetic decision evidence.'}</p></div><Pill tone="quiet">READ-ONLY MIGRATION</Pill></div>
+    <div className="page-heading"><div><div className="eyebrow">PREDICTIVE RISK INTELLIGENCE</div><h1>{section==='Overview'?'Migration Command Centre':section}</h1><p>{section==='Overview'?'Intelligence and decision support across migration waves.':section==='Migration Studio'?'Configure source systems, target formats, conversion strategy and private AI.':section==='Local AI & Learning'?'Analyze ERP sources locally, review structured recommendations, and reuse approved corrections.':section==='ERP Learning Demo'?'Run 20 synthetic ERP cases, review errors, approve fixes and replay migration.':section==='Data Quality Lab'?'Profile, clean and validate CSV samples in your browser.':section==='Exceptions'?'Investigate, classify, and route synthetic migration exceptions.':section==='Migration Memory'?'Evidence-backed, approved remediation knowledge.':section==='SAP Readiness'?'Preliminary exception-based readiness; not SAP acceptance.':section==='Critical Path'?'Prioritise simulated blockers threatening release readiness.':'Export traceable synthetic decision evidence.'}</p></div><Pill tone="quiet">SOURCE PROTECTED</Pill></div>
     {error&&<div className="error" role="alert">{error}<button onClick={()=>setError('')}>Dismiss</button></div>}
     {section==='Overview'&&<section className="panel" style={{marginBottom:20,padding:24}}>
       <div className="eyebrow">START HERE · GUIDED DEMO</div>
@@ -46,6 +48,7 @@ export default function App(){
       <button className="small-button" onClick={()=>select('Migration Studio')} style={{padding:'13px 20px',fontWeight:700}}>Open database workbench <ArrowRight size={17}/></button>
     </section>}
     {section==='Migration Studio'&&<><DatabaseDemo/><MigrationStudio/></>}
+    {section==='Local AI & Learning'&&<LocalLearning/>}
     {section==='ERP Learning Demo'&&<ErpLearningDemo/>}
     {section==='Data Quality Lab'&&<DataQualityLab/>}
     {section==='Overview'&&<><div className="metrics">
