@@ -133,7 +133,19 @@ To prepare and load an existing run manually:
 
 Preparation checks the processed database hash and first-dataset metrics against its audit before exporting. The loader only connects to localhost, refuses to overwrite an existing package's app, verifies loaded row counts and chart dataset counts, then saves the app URL. If interrupted after app creation, recovery details remain in `qlik-app.json`; inspect that app rather than deleting the recovery record and blindly retrying. The CSV and QVS files can also be imported manually using the supplied README.
 
-The initial 20-dataset app was verified through the actual Qlik engine and visually in the local browser: 81 vendors, 80 materials, 80 invoices, 40 metric rows; the first dataset shows 786 findings before and 125 after. Both comparison charts rendered. This demonstrates local file ingestion and analytics, not live MySQL streaming, Qlik Talend migration or Qlik Cloud integration. Company memory and models remain managed by PRISM and are not copied into Qlik.
+The initial 20-dataset app was verified through the actual Qlik engine and visually in the local browser: 81 vendors, 80 materials, 80 invoices, 40 metric rows; the first dataset shows 786 findings before and 125 after. Both comparison charts rendered. Company memory and models remain managed by PRISM and are not copied into Qlik.
+
+### Direct MySQL source connection
+
+The installed Qlik ODBC connector also connects directly to the real local MySQL 8.4 container at `127.0.0.1:3307/prism_erp`. `scripts.connect_qlik_mysql` uses the existing `prism_reader` account from private `.local/mysql.env`. It is limited to this synthetic source and fixed SELECT queries over the three known ERP tables, bounded to 5,000 rows per table. MySQL 8.4 connectivity was tested on this machine; Qlik's published MySQL support matrix lists older versions, so this demonstration does not claim general 8.4 vendor certification.
+
+```powershell
+.venv\Scripts\python -m scripts.connect_qlik_mysql --folder EXISTING_QLIK_FOLDER
+```
+
+The command validates the connector, creates or updates its named connection, adds a marked script section, reloads, compares actual Qlik source counts with MySQL, and saves. Repeating it updates that section rather than duplicating source tables. Raw fields use a separate `source_` prefix; only the intended vendor link is shared among raw tables. Processed tables retain their separate approved file connection. The first script backup is preserved in `PRISM-before-mysql.qvs`; credentials are never written into that script or the status JSON. Qlik Desktop itself retains connection credentials inside its local app, so do not redistribute the credential-bearing QVF. The one-click rehearsal attempts this attachment after its processed-data Qlik load.
+
+Verified source counts are 81 vendors, 80 materials and 80 invoices. This is a direct database connection refreshed on Qlik reload, not streaming, CDC or a Talend migration. Qlik Cloud, Qlik Answers, Talend and SAP still require suitable activated services and credentials. REST and SAP connector availability alone does not establish an active service connection.
 
 ## Offline QLoRA
 

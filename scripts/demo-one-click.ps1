@@ -53,7 +53,12 @@ try {
         $qlikSocket.Connect('127.0.0.1',4848)
         & $python -m scripts.load_qlik_demo --folder $qlikFolder 2>&1 | Out-File -LiteralPath (Join-Path $runPath 'qlik-load.log') -Encoding utf8
         if ($LASTEXITCODE -ne 0) { Write-Host 'Qlik files prepared; desktop load pending. See qlik-load.log.' -ForegroundColor Yellow }
-        else { Write-Host ('Qlik Desktop app loaded. URL recorded in '+(Join-Path $qlikFolder 'qlik-app.json')) }
+        else {
+            Write-Host ('Qlik Desktop app loaded. URL recorded in '+(Join-Path $qlikFolder 'qlik-app.json'))
+            & $python -m scripts.connect_qlik_mysql --folder $qlikFolder 2>&1 | Out-File -LiteralPath (Join-Path $runPath 'qlik-load.log') -Encoding utf8 -Append
+            if ($LASTEXITCODE -ne 0) { Write-Host 'Processed data loaded in Qlik; direct MySQL attachment pending. See qlik-load.log.' -ForegroundColor Yellow }
+            else { Write-Host 'Qlik direct read-only MySQL source connected and verified.' }
+        }
     } catch { Write-Host 'Qlik files prepared. Launch Qlik Desktop to load them.' }
     finally { $qlikSocket.Dispose() }
     $latest = @{run=$runPath;report=$report;datasets=$summaries.Count;completed=(Get-Date).ToString('o');synthetic=$true;approval='simulated';samples=$samples}
