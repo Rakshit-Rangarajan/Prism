@@ -24,6 +24,7 @@ class RunRequest(BaseModel):
     # Strict typing prevents strings such as "yes" from silently triggering a
     # target write when a preview was intended.
     apply: bool = Field(default=False, strict=True)
+    batch: int = Field(default=1, ge=1, le=20, strict=True)
 
 
 class ApprovalRequest(BaseModel):
@@ -44,9 +45,9 @@ def scenarios():
 def run_demo(request: RunRequest):
     engine = _open()
     try:
-        results = engine.run(apply=request.apply)
+        results = engine.run(apply=request.apply, batch=request.batch)
         return {"synthetic": True, "mode": "apply" if request.apply else "preview",
-                "results": results, "reconciliation": engine.report(results)}
+                "batch": request.batch, "results": results, "reconciliation": engine.report(results)}
     finally:
         engine.db.close()
 
